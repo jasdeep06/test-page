@@ -3,6 +3,7 @@
 In the [previous post](https://jasdeep06.github.io/posts/towards-backpropagation/),we learnt to appericiate the beauty of derivatives and their effect on update rule which is given by-
 
 $$\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$
+
 $$\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$
 
 where 
@@ -38,7 +39,9 @@ Not only will we achieve the above aim but in that process we will slowly slide 
 This nested system might seem a bit intimidating at first.Where do we start?Well,we know the update rules from the last post that involve derivatives of output with respect to input.Let us list down these update rules for our inputs `a`,`b` and `c`-
 
 $$\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$
+
 $$\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$
+
 $$\Large{c}={c}+{h}*\frac{\partial f}{\partial c}$$
 
 We somehow want to compute the three derivatives (\\frac{\partial f}{\partial a}\),(\\frac{\partial f}{\partial b}\) and (\\frac{\partial f}{\partial c}\)
