@@ -1,274 +1,141 @@
-# Into-Backpropagation
+# Lets practice Backpropagation
 
-In the [previous post](https://jasdeep06.github.io/posts/towards-backpropagation/),we learnt to appericiate the beauty of derivatives and their effect on update rule which is given by-
+In the [previous post](https://jasdeep06.github.io/posts/into-backpropagation/) we went through a system of nested nodes and analysed the update rules for the system.We also went through the intuitive notion of backpropagation and figured out that it is nothing but applying chain rule over and over again.In this post we will apply backpropogation to systems with complex functions so that the reader gets comfortable with chain rule and its applications to complex systems.
 
-\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$
-\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$
+##### Lets get started!!!
 
-where 
-\Large{f}={f}({a},{b})$$
+Lets start with a single node system but this time with a complex function:
+![sigmoid.png](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/futher-into-backpropagation/images/sigmoid.png?raw=true)
 
-
-
-Although the case of single node system helps us capture the intuition behind the effect of change in input on the output# Into-Backpropagation
-
-In the [previous post](https://jasdeep06.github.io/posts/towards-backpropagation/),we learnt to appreciate the beauty of derivatives and their effect on update rule which is given by-
-
-\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$
-\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$
-
-where 
-\Large{f}={f}({a},{b})$$
-
-
-
-Although the case of single node system helps us capture the intuition behind the effect of change in input on the output of node,it is pretty useless if considered in isolation.We need to scale up our network.Let us consider case of nested nodes as shown below-
-
-![nested](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/into-backpropagation/images/nested.png?raw=true)
-
-Here there are two nodes,out of which the first one(from the left) accepts two inputs `a` and `b` and performs addition operation on them to return the output `d`.The second node accepts `d` and a new input `c` as inputs and performs product operation on them to gives `f` as final output.
-This system can be represented in python:
-		    
-    def product(x,y):
-    	return x*y
-    def addition(x,y):
-    	return x+y
-
-	a=5
-	b=-3
-	c=-2
-	d=addition(a,b)
-	f=product(d,c)	#outputs -4
+This system can be represented as:
+	
+    import numpy as np
+	def sigmoid(x):
+    	return 1/(1+np.exp(-x))
+	a=-2
+	f=sigmoid(a)
+	print(f) #outputs 0.1192
 
 #### Aim
-Our aim is still the same as was in last post viz;we want to manipulate the values of our inputs `a`,`b`,`c` in such a way that the value of output `f` increases.
+Our aim essentially remains the same as in previous posts viz:we have to increase the value of output(`f`) by manipulating the values of input(`a`).
 
-Not only will we achieve the above aim but in that process we will slowly slide into backpropagation and go through the concept intuitively.Note that this post will be slightly more mathematical than the last one but all the concepts used are from the described intuitively in the [previous post](https://jasdeep06.github.io/posts/towards-backpropagation/).
+The node in above figure represents a sigmoid unit.Sigmoid function is expressed as-
+(dollar)\Large{\sigma({x})=\frac{1}{1+e^{-x}}(dollar)
 
-###### Lets get started!!
+>*If you analyse the sigmoid function,you will notice that irrespective of the input value,this function gives a value between 0 and 1 as output.It is a nice property to have as it gives a sense of probabilistic values of inputs.It was once the most popular activation function used in neural network design.*
 
-This nested system might seem a bit intimidating at first.Where do we start?Well,we know the update rules from the last post that involve derivatives of output with respect to input.Let us list down these update rules for our inputs `a`,`b` and `c`-
+Where do we start?Once again let us look at our update rule:
+(dollar)\Large{a}={a}+{h}(mul)\frac{\df}{\da}(dollar)
 
-\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$
-\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$
-\Large{c}={c}+{h}*\frac{\partial f}{\partial c}$$
+(Here we are using total derivative((db)\Large\d(db)) instead of partial derivative((db)\Large\partial(db)) because here our node is a function of only one variable i.e. `a`.And thats the only difference there is between the two.Rest every thing remains the same.)
 
-We somehow want to compute the three derivatives (\\frac{\partial f}{\partial a}\),(\\frac{\partial f}{\partial b}\) and (\\frac{\partial f}{\partial c}\)
+We just have to find value of the derivative (db)\Large\frac{df}{da}(db).
+If you are aware of basic rules of calculus(Refer [Derivetive rules](https://www.mathsisfun.com/calculus/derivatives-rules.html)) then you can easily find the derivative of sigmoid with respect to a.If you are new to calculus then just remember for now that derivative of sigmoid funtion is given by:
 
-Let us look at the relations among various variables in our system.We can easily write-
 
-\Large{f}={d}*{c}$$
-\Large{d}={a}+{b}$$
+(dollar)\Large\frac{d\sigma}{da}=(\sigma({a}))(mul)(1-\sigma({a}))(dollar)
 
-Now let us use the analytical gradient to calculate derivatives from the above relations.(Refer [Derivative rules](https://www.mathsisfun.com/calculus/derivatives-rules.html)).
+Let us put this value in our update rule:
+(dollar)\Large{a}={a}+h(mul)(\sigma({a}))(mul)(1-\sigma({a}))(dollar)
 
-Consider the relation \(\Large{f}={d}*{c}\)
+Using this update rule in python:
 
-Differentiating this relation we get-
+	import numpy as np
+    def sigmoid(x):
+    	return 1/(1+np.exp(-x))
+	def derivative_sigmoid(x):
+    	return sigmoid(x)*(1-sigmoid(x))
+	a=-2
+	h=.1
+	a=a+h*derivative_sigmoid(a)
+	f=sigmoid(a)
+	print(f)  #outputs 0.1203
+    
+The above program outputs 0.1203 which is greater than 0.1192.It worked!!!
 
-\Large\frac{\partial f}{\partial d}={c}$$
-\Large\frac{\partial f}{\partial c}={d}$$
+Let us take the discussion one notch above.Consider the system:
+![nested-sigmoid](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/futher-into-backpropagation/images/nested-sigmoid.png?raw=true)
+The system consists of three inputs `a`,`b` and `c`.The former two pass through an addition node and give output `d` which products with the input`c` to generate `d` which is passed thwough sigmoid node to give final output `f`.Let us represent this system in python:
 
-Differentiating the relation \(\Large{d}={a}*{b}\) we get-
-
-\Large\frac{\partial d}{\partial a}={1}$$
-\Large\frac{\partial d}{\partial b}={1}$$
-
-Observe that derivatives for addition node is 1.This makes intuitive sense too.If you try to increase input to an addition node by a quantity h,then the output value will increase by same quantity.Thus normalised change i.e. the derivative is 1.
-
-We now have the values of \(\frac{\partial f}{\partial d}\),\(\frac{\partial f}{\partial c}\),\(\frac{\partial d}{\partial a}\)and \(\frac{\partial d}{\partial b}\).We somehow have to use these values to compute the values of \(\frac{\partial f}{\partial a}\),\(\frac{\partial f}{\partial b}\) and \(\frac{\partial f}{\partial c}\).
-
-The value of \(\frac{\partial f}{\partial c}\) is already known.This leaves us with two unknown values viz:\(\frac{\partial f}{\partial a}\) and (\frac{\partial f}{\partial b}\).
-
-## Backpropagation
-
-Its time to introduce **Chain rule**.No need to be intimidated by the name.Its pretty easy and straightforward.We know the derivative of `f` with respect to `d`(\(\frac{\partial f}{\partial d}\)) and we also know the derivative of `d` with respect to `a`(\(\frac{\partial d}{\partial a}\)).Chain rule tells us how we can combine these two derivatives to find the derivative of `f` with respect to `a`( \(\frac{\partial f}{\partial a}\)).It simply states to multiply these two derivatives(or to chain them together)to get the derivative of `f` with respect to `a`.Mathematically-
-\Large\frac{\partial f}{\partial a}=\frac{\partial f}{\partial d}{*}\frac{\partial d}{\partial a}$$
-
-Similarly,
-\Large\frac{\partial f}{\partial b}=\frac{\partial f}{\partial d}{*}\frac{\partial d}{\partial b}$$
-
-For this nested system we have already found the values of different derivatives.Thus:
-\Large\frac{\partial f}{\partial a}={c}*{1}$$
-\Large\frac{\partial f}{\partial b}={c}*{1}$$
-
-The update rules can now be generated as follows:
-
-\Large{a}={a}+{h}*\frac{\partial f}{\partial a}={a}+{h}*{c}$$
-\Large{b}={b}+{h}*\frac{\partial f}{\partial b}={b}+{h}*{c}$$
-\Large{c}={c}+{h}*\frac{\partial f}{\partial c}={c}+{h}*{d}$$
-
-Now that we have our update rules we can express this in python:
-
+	import numpy as np
+	def addition(x,y):
+    	return x+y
 	def product(x,y):
     	return x*y
-    def addition(x,y):
-    	return x+y
-    a=5
-	b=-3
-	c=-2
-    d=addition(a,b)
-    h=0.01
-    derivative_f_wrt_d=c
-    derivative_f_wrt_c=d
-    derivative_d_wrt_a=1
-    derivative_d_wrt_b=1
-    
-    derivative_f_wrt_a=derivative_f_wrt_d*derivative_d_wrt_a
-    derivative_f_wrt_b=derivative_f_wrt_d*derivative_d_wrt_b
-    
-    a=a+h*derivative_f_wrt_a
-    b=b+h*derivative_f_wrt_b
-    c=c+h*derivative_f_wrt_c
-    
-    d=addition(a,b)
-    f=product(d,c)		#outputs -3.88
-   
-The output of above program is -3.88 which is greater than -4.It worked!!!
+	def sigmoid(x):
+    	return 1/(1+np.exp(-x))
 
-### Why did it work?
-
-Let us step back a bit and try to gain intuition of stuff that is happening here.In order to analyse,first let us traverse through nodes from input to output i.e. in forward direction.We know the input value of `a`=5,`b`=-3,`c`=-2.We can easily find out value of `d` to be 2 which in turn makes `f`=-4.This is essentially known as forward pass through the network.This forward traversal is important because we would want to know the values of intermediate variables like `d`thus making it possible to analyse and find the derivatives. 
-
-Let us now traverse through the nested nodes from output to input i.e. in backward direction.Our aim was to increase the value of `f` by manipulating `a`,`b` and `c`.In order to increase the value of `f`,as `c` is negative(-2) and `d` is positive(2) we would want to increase the value of c(with sign) and decrease the value of d.This effect is essentially captured by the derivative \(\frac{\partial f}{\partial c}\) being positive(thus increasing value of `c` in update rule) and derivative \(\frac{\partial f}{\partial d}\) being negative(thus decreasing the value of `d` in update rule).Now as we traverse furthur back through the addition node,in order to decrease value of `d`,both `a` and `b` have to decrease.Although the derivatives \(\frac{\partial d}{\partial a}\) and \(\frac{\partial d}{\partial b}\) are positive(1) the decreasing effect is captured by the negative value of \(\frac{\partial f}{\partial d}\) thus making the products \(\frac{\partial d}{\partial a}\)*\(\frac{\partial f}{\partial d}\) and \(\frac{\partial f}{\partial d}\)*\(\frac{\partial d}{\partial b}\) negative and thus decreasing the value in update rules of `a` and `b`.
-
-This pass through the network from output to input is known as backward pass and this process of transfer of gradients or derivatives through the network from output to input is known as backpropogation.
-
-I will stop here.I hope that you have captured the intuition behind backpropagation and its nothing but chain rule applied over and over again.In the next post we will apply this algorithm to a standard neural network and develop an intuition of how things work there.
-
-
-
-
-
-
-
-
-
-
-
-
- of node,it is pretty useless if considered in isolation.We need to scale up our network.Let us consider case of nested nodes as shown below-
-
-![nested](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/into-backpropagation/images/nested.png?raw=true)
-
-Here there are two nodes,out of which the first one(from the left) accepts two inputs `a` and `b` and performs addition operation on them to return the output `d`.The second node accepts `d` and a new input `c` as inputs and performs product operation on them to gives `f` as final output.
-This system can be represented in python:
-		    
-    def product(x,y):
-    	return x*y
-    def addition(x,y):
-    	return x+y
-
-	a=5
-	b=-3
-	c=-2
+	a=1
+	b=-2
+	c=-3
 	d=addition(a,b)
-	f=product(d,c)	#outputs -4
+	e=product(c,d)
+	f=sigmoid(e)
+	print(f)  #outputs 0.952574
+    
+Our aim essentially remains the same viz:to tweak the values of input `a`,`b` and `c` in order to increase the value of `f`.Once again like our previous approaches,let us look at our update rules:
 
-#### Aim
-Our aim is still the same as was in last post viz;we want to manipulate the values of our inputs `a`,`b`,`c` in such a way that the value of output `f` increases.
+(dollar)\Large{a}={a}+{h}(mul)\frac{\partial f}{\partial a}(dollar) 
+(dollar)\Large{b}={b}+{h}(mul)\frac{\partial f}{\partial b}(dollar)
+(dollar)\Large{c}={c}+{h}(mul)\frac{\partial f}{\partial c}(dollar)
 
-Not only will we achieve the above aim but in that process we will slowly slide into backpropagation and go through the concept intuitively.Note that this post will be slightly more mathematical than the last one but all the concepts used are from the described intuitivly in the [previous post](https://jasdeep06.github.io/posts/towards-backpropagation/).
+We have to somehow find the values of the derivatives (db)\Large\frac{\partial f}{\partial a}(db),(db)\Large\frac{\partial f}{\partial b}(db) and (db)\Large\frac{\partial f}{\partial c}(db).
 
-###### Lets get started!!
+Using chain rule described in [previous post](https://jasdeep06.github.io/posts/into-backpropagation/) we can write:
+(dollar)\Large\frac{\partial f}{\partial a}=\frac{\partial f}{\partial e}(mul)\frac{\partial e}{\partial d}(mul)\frac{\partial d}{\partial a}(dollar)
+(dollar)\Large\frac{\partial f}{\partial b}=\frac{\partial f}{\partial e}(mul)\frac{\partial e}{\partial d}(mul)\frac{\partial d}{\partial b}(dollar)
+(dollar)\Large\frac{\partial f}{\partial c}=\frac{\partial f}{\partial e}(mul)\frac{\partial e}{\partial c}(dollar)
 
-This nested system might seem a bit intimidating at first.Where do we start?Well,we know the update rules from the last post that involve derivatives of output with respect to input.Let us list down these update rules for our inputs `a`,`b` and `c`-
+>*This is a good example to get an intuition about chain rule.Observe how in order to compute derivatives of `f` with respect to various inputs,we are just travelling to those inputs from `f` and multiplying(chaining) the derivatives that we encounter as we reach the input.*
 
-\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$
-\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$
-\Large{c}={c}+{h}*\frac{\partial f}{\partial c}$$
+Lets start finding the values of derivatives:
 
-We somehow want to compute the three derivatives (\\frac{\partial f}{\partial a}\),(\\frac{\partial f}{\partial b}\) and (\\frac{\partial f}{\partial c}\)
+Let us traverse the system from output to input i.e. backward.While crossing the sigmoid node the value of (db)\Large\frac{\partial f}{\partial e}(db) can be written easily as (db)\Large(\sigma({e}))(mul)(1-\sigma({e}))(db).Further while crossing the product node the values of (db)\Large\frac{\partial e}{\partial d}(db) and (db)\Large\frac{\partial e}{\partial c}(db) can easily be written as (db)\Large{c}(db) and (db)\Large{d}(db) respectively.Further while crossing the addition node the values of (db)\Large\frac{\partial e}{\partial d}(db) and (db)\Large\frac{\partial e}{\partial c}(db) can be easily written as (db)\Large{1}(db) and (db)\Large{1}(db) respectively.If you are having trouble in getting your head around these derivatives I suggest you to have a look at [first](https://jasdeep06.github.io/posts/towards-backpropagation/) and the [second](https://jasdeep06.github.io/posts/into-backpropagation/) post of this series.
 
-Let us look at the relations among various variables in our system.We can easily write-
+Writing our update rules we get:
+(dollar)\Large\frac{\partial f}{\partial a}=(\sigma({e}))(mul)(1-\sigma({e}))(mul){c}(mul){1}(dollar)
+(dollar)\Large\frac{\partial f}{\partial b}=(\sigma({e}))(mul)(1-\sigma({e}))(mul){c}(mul){1}(dollar)
+(dollar)\Large\frac{\partial f}{\partial c}=(\sigma({e}))(mul)(1-\sigma({e}))(mul){d}(dollar)
 
-\Large{f}={d}*{c}$$
-\Large{d}={a}+{b}$$
+Let us represent this in python:
 
-Now let us use the analytical gradient to calculate derivatives from the above relations.(Refer [Derivative rules](https://www.mathsisfun.com/calculus/derivatives-rules.html)).
-
-Consider the relation \(\Large{f}={d}*{c}\)
-
-Differentiating this relation we get-
-
-\Large\frac{\partial f}{\partial d}={c}$$
-\Large\frac{\partial f}{\partial c}={d}$$
-
-Differentiating the relation \(\Large{d}={a}*{b}\) we get-
-
-\Large\frac{\partial d}{\partial a}={1}$$
-\Large\frac{\partial d}{\partial b}={1}$$
-
-Observe that derivatives for addition node is 1.This makes intuitive sense too.If you try to increase input to an addition node by a quantity h,then the output value will increase by same quantity.Thus normalised change i.e. the derivative is 1.
-
-We now have the values of \(\frac{\partial f}{\partial d}\),\(\frac{\partial f}{\partial c}\),\(\frac{\partial d}{\partial a}\)and \(\frac{\partial d}{\partial b}\).We somehow have to use these values to compute the values of \(\frac{\partial f}{\partial a}\),\(\frac{\partial f}{\partial b}\) and \(\frac{\partial f}{\partial c}\).
-
-The value of \(\frac{\partial f}{\partial c}\) is already known.This leaves us with two unknown values viz:\(\frac{\partial f}{\partial a}\) and (\frac{\partial f}{\partial b}\).
-
-## Backpropagation
-
-Its time to introduce **Chain rule**.No need to be intimidated by the name.Its pretty easy and straightforward.We know the derivative of `f` with respect to `d`(\(\frac{\partial f}{\partial d}\)) and we also know the derivative of `d` with respect to `a`(\(\frac{\partial d}{\partial a}\)).Chain rule tells us how we can combine these two derivatives to find the derivative of `f` with respect to `a`( \(\frac{\partial f}{\partial a}\)).It simply states to multiply these two derivatives(or to chain them together)to get the derivative of `f` with respect to `a`.Mathematically-
-\Large\frac{\partial f}{\partial a}=\frac{\partial f}{\partial d}{*}\frac{\partial d}{\partial a}$$
-
-Similarly,
-\Large\frac{\partial f}{\partial b}=\frac{\partial f}{\partial d}{*}\frac{\partial d}{\partial b}$$
-
-For this nested system we have already found the values of different derivatives.Thus:
-\Large\frac{\partial f}{\partial a}={c}*{1}$$
-\Large\frac{\partial f}{\partial b}={c}*{1}$$
-
-The update rules can now be generated as follows:
-
-\Large{a}={a}+{h}*\frac{\partial f}{\partial a}={a}+{h}*{c}$$
-\Large{b}={b}+{h}*\frac{\partial f}{\partial b}={b}+{h}*{c}$$
-\Large{c}={c}+{h}*\frac{\partial f}{\partial c}={c}+{h}*{d}$$
-
-Now that we have our update rules we can express this in python:
-
+import numpy as np
+	def addition(x,y):
+    	return x+y
 	def product(x,y):
     	return x*y
-    def addition(x,y):
-    	return x+y
-    a=5
-	b=-3
-	c=-2
-    d=addition(a,b)
-    h=0.01
-    derivative_f_wrt_d=c
-    derivative_f_wrt_c=d
-    derivative_d_wrt_a=1
-    derivative_d_wrt_b=1
-    
-    derivative_f_wrt_a=derivative_f_wrt_d*derivative_d_wrt_a
-    derivative_f_wrt_b=derivative_f_wrt_d*derivative_d_wrt_b
-    
-    a=a+h*derivative_f_wrt_a
-    b=b+h*derivative_f_wrt_b
-    c=c+h*derivative_f_wrt_c
-    
-    d=addition(a,b)
-    f=product(d,c)		#outputs -3.88
-   
-The output of above program is -3.88 which is greater than -4.It worked!!!
+	def sigmoid(x):
+    	return 1/(1+np.exp(-x))
+	def derivative_sigmoid(x):
+    	return sigmoid(x)*(1-sigmoid(x))
 
-### Why did it work?
+	#initialization
+	a=1
+	b=-2
+	c=-3
+	#forward-propogation
+	d=addition(a,b)
+	e=product(c,d)
+	#step size
+	h=0.1
+	#derivatives
+	derivative_f_wrt_e=derivative_sigmoid(e)
+	derivative_e_wrt_d=c
+	derivative_e_wrt_c=d
+	derivative_d_wrt_a=1
+	derivative_d_wrt_b=1
+	#backward-propogation (Chain rule)
+	derivative_f_wrt_a=derivative_f_wrt_e*derivative_e_wrt_d*derivative_d_wrt_a
+	derivative_f_wrt_b=derivative_f_wrt_e*derivative_e_wrt_d*derivative_d_wrt_b
+	derivative_f_wrt_c=derivative_f_wrt_e*derivative_e_wrt_c
+	#update-parameters
+	a=a+h*derivative_f_wrt_a
+	b=b+h*derivative_f_wrt_b
+	c=c+h*derivative_f_wrt_c
+	d=addition(a,b)
+	e=product(c,d)
+	f=sigmoid(e)
+	print(f)  #prints 0.9563
 
-Let us step back a bit and try to gain intuition of stuff that is happening here.In order to analyse,first let us traverse through nodes from input to output i.e. in forward direction.We know the input value of `a`=5,`b`=-3,`c`=-2.We can easily find out value of `d` to be 2 which in turn makes `f`=-4.This is essentially known as forward pass through the network.This forward traversal is important because we would want to know the values of intermediate variables like `d`thus making it possible to analyse and find the derivatives. 
-
-Let us now traverse through the nested nodes from output to input i.e. in backward direction.Our aim was to increase the value of `f` by manipulating `a`,`b` and `c`.In order to increase the value of `f`,as `c` is negative(-2) and `d` is positive(2) we would want to increase the value of c(with sign) and decrease the value of d.This effect is essentially captured by the derivative \(\frac{\partial f}{\partial c}\) being positive(thus increasing value of `c` in update rule) and derivative \(\frac{\partial f}{\partial d}\) being negative(thus decreasing the value of `d` in update rule).Now as we traverse furthur back through the addition node,in order to decrease value of `d`,both `a` and `b` have to decrease.Although the derivatives \(\frac{\partial d}{\partial a}\) and \(\frac{\partial d}{\partial b}\) are positive(1) the decreasing effect is captured by the negitive value of \(\frac{\partial f}{\partial d}\) thus making the products \(\frac{\partial d}{\partial a}\)*\(\frac{\partial f}{\partial d}\) and \(\frac{\partial f}{\partial d}\)*\(\frac{\partial d}{\partial b}\) negative and thus decreasing the value in update rules of `a` and `b`.
-
-This pass through the network from output to input is known as backward pass and this process of transfer of gradients or derivatives through the network from output to input is known as backpropogation.
-
-I will stop here.I hope that you have captured the intuition behind backpropagation and its nothing but chain rule applied over and over again.In the next post we will apply this algorithm to a standard neural network and develop an intuition of how things work there.
-
-
-
-
-
-
-
-
-
-
-
+The output of above program is 0.9563 which is greater than 0.9525.
 
