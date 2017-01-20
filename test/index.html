@@ -1,0 +1,197 @@
+
+
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="test-page : Repo to test github-pages">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="styles/style.css">
+    <script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}
+});
+</script>
+<script type="text/javascript" async
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+
+    <title>test-page</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+
+          <h1 id="project_title">Backpropagation</h1>
+
+          
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1 id="into-backpropagation">Into-Backpropagation</h1>
+
+<p>In the <a href="https://jasdeep06.github.io/posts/towards-backpropagation/">previous post</a>,we learnt to appericiate the beauty of derivatives and their effect on update rule which is given by-</p>
+
+<p>$$\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$ $$\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$</p>
+
+<p>where 
+$$\Large{f}={f}({a},{b})$$</p>
+
+<p>Although the case of single node system helps us capture the intuition behind the effect of change in input on the output# Into-Backpropagation</p>
+
+<p>In the <a href="https://jasdeep06.github.io/posts/towards-backpropagation/">previous post</a>,we learnt to appreciate the beauty of derivatives and their effect on update rule which is given by-</p>
+
+<p>$$\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$ 
+  $$\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$</p>
+
+<p>where 
+$$\Large{f}={f}({a},{b})$$</p>
+
+<p>Although the case of single node system helps us capture the intuition behind the effect of change in input on the output of node,it is pretty useless if considered in isolation.We need to scale up our network.Let us consider case of nested nodes as shown below-</p>
+
+<p><img src="https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/into-backpropagation/images/nested.png?raw=true" alt="nested" /></p>
+
+<p>Here there are two nodes,out of which the first one(from the left) accepts two inputs <code class="highlighter-rouge">a</code> and <code class="highlighter-rouge">b</code> and performs addition operation on them to return the output <code class="highlighter-rouge">d</code>.The second node accepts <code class="highlighter-rouge">d</code> and a new input <code class="highlighter-rouge">c</code> as inputs and performs product operation on them to gives <code class="highlighter-rouge">f</code> as final output.
+This system can be represented in python:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>def product(x,y):
+  return x*y
+def addition(x,y):
+  return x+y
+
+a=5
+b=-3
+c=-2
+d=addition(a,b)
+f=product(d,c)  #outputs -4
+</code></pre>
+</div>
+
+<h4 id="aim">Aim</h4>
+<p>Our aim is still the same as was in last post viz;we want to manipulate the values of our inputs <code class="highlighter-rouge">a</code>,<code class="highlighter-rouge">b</code>,<code class="highlighter-rouge">c</code> in such a way that the value of output <code class="highlighter-rouge">f</code> increases.</p>
+
+<p>Not only will we achieve the above aim but in that process we will slowly slide into backpropagation and go through the concept intuitively.Note that this post will be slightly more mathematical than the last one but all the concepts used are from the described intuitively in the <a href="https://jasdeep06.github.io/posts/towards-backpropagation/">previous post</a>.</p>
+
+<h6 id="lets-get-started">Lets get started!!</h6>
+
+<p>This nested system might seem a bit intimidating at first.Where do we start?Well,we know the update rules from the last post that involve derivatives of output with respect to input.Let us list down these update rules for our inputs <code class="highlighter-rouge">a</code>,<code class="highlighter-rouge">b</code> and <code class="highlighter-rouge">c</code>-</p>
+
+<p>$$\Large{a}={a}+{h}*\frac{\partial f}{\partial a}$$ $$\Large{b}={b}+{h}*\frac{\partial f}{\partial b}$$
+$$\Large{c}={c}+{h}*\frac{\partial f}{\partial c}$$</p>
+
+<p>We somehow want to compute the three derivatives \(\Large\frac{\partial f}{\partial a}\),\(\Large\frac{\partial f}{\partial b}\) and \(\Large\frac{\partial f}{\partial c}\)</p>
+
+<p>Let us look at the relations among various variables in our system.We can easily write-</p>
+
+<p>$$\Large{f}={d}*{c}$$ $$\Large{d}={a}+{b}$$</p>
+
+<p>Now let us use the analytical gradient to calculate derivatives from the above relations.(Refer <a href="https://www.mathsisfun.com/calculus/derivatives-rules.html">Derivative rules</a>).</p>
+
+<p>Consider the relation \(\Large{f}={d}*{c}\)</p>
+
+<p>Differentiating this relation we get-</p>
+
+<p>$$\Large\frac{\partial f}{\partial d}={c}$$ $$\Large\frac{\partial f}{\partial c}={d}$$</p>
+
+<p>Differentiating the relation \(\Large{d}={a}*{b}\) we get-</p>
+
+<p>$$\Large\frac{\partial d}{\partial a}={1}$$ $$\Large\frac{\partial d}{\partial b}={1}$$</p>
+
+<p>Observe that derivatives for addition node is 1.This makes intuitive sense too.If you try to increase input to an addition node by a quantity h,then the output value will increase by same quantity.Thus normalised change i.e. the derivative is 1.</p>
+
+<p>We now have the values of \(\Large\frac{\partial f}{\partial d}\),\(\Large\frac{\partial f}{\partial c}\),\(\Large\frac{\partial d}{\partial a}\)and \(\Large\frac{\partial d}{\partial b}\).We somehow have to use these values to compute the values of \(\Large\frac{\partial f}{\partial a}\),\(\Large\frac{\partial f}{\partial b}\) and \(\Large\frac{\partial f}{\partial c}\).</p>
+
+<p>The value of \(\Large\frac{\partial f}{\partial c}\) is already known.This leaves us with two unknown values viz:\(\Large\frac{\partial f}{\partial a}\) and \(\Large\frac{\partial f}{\partial b}\).</p>
+
+<h2 id="backpropagation">Backpropagation</h2>
+
+<p>Its time to introduce <strong>Chain rule</strong>.No need to be intimidated by the name.Its pretty easy and straightforward.We know the derivative of <code class="highlighter-rouge">f</code> with respect to <code class="highlighter-rouge">d</code>(\(\Large\frac{\partial f}{\partial d}\)) and we also know the derivative of <code class="highlighter-rouge">d</code> with respect to <code class="highlighter-rouge">a</code>(\(\Large\frac{\partial d}{\partial a}\)).Chain rule tells us how we can combine these two derivatives to find the derivative of <code class="highlighter-rouge">f</code> with respect to <code class="highlighter-rouge">a</code>( \(\Large\frac{\partial f}{\partial a}\)).It simply states to multiply these two derivatives(or to chain them together)to get the derivative of <code class="highlighter-rouge">f</code> with respect to <code class="highlighter-rouge">a</code>.Mathematically-
+$$\Large\frac{\partial f}{\partial a}=\frac{\partial f}{\partial d}{*}\frac{\partial d}{\partial a}$$</p>
+
+<p>Similarly,
+$$\Large\frac{\partial f}{\partial b}=\frac{\partial f}{\partial d}{*}\frac{\partial d}{\partial b}$$</p>
+
+<p>For this nested system we have already found the values of different derivatives.Thus:
+$$\Large\frac{\partial f}{\partial a}={c}*{1}$$ $$\Large\frac{\partial f}{\partial b}={c}*{1}$$</p>
+
+<p>The update rules can now be generated as follows:</p>
+
+<p>$$\Large{a}={a}+{h}*\frac{\partial f}{\partial a}={a}+{h}*{c}$$ $$\Large{b}={b}+{h}*\frac{\partial f}{\partial b}={b}+{h}*{c}$$
+$$\Large{c}={c}+{h}*\frac{\partial f}{\partial c}={c}+{h}*{d}$$</p>
+
+<p>Now that we have our update rules we can express this in python:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>def product(x,y):
+  return x*y
+def addition(x,y):
+  return x+y
+a=5
+b=-3
+c=-2
+d=addition(a,b)
+h=0.01
+derivative_f_wrt_d=c
+derivative_f_wrt_c=d
+derivative_d_wrt_a=1
+derivative_d_wrt_b=1
+
+derivative_f_wrt_a=derivative_f_wrt_d*derivative_d_wrt_a
+derivative_f_wrt_b=derivative_f_wrt_d*derivative_d_wrt_b
+
+a=a+h*derivative_f_wrt_a
+b=b+h*derivative_f_wrt_b
+c=c+h*derivative_f_wrt_c
+
+d=addition(a,b)
+f=product(d,c)    #outputs -3.88
+</code></pre>
+</div>
+
+<p>The output of above program is -3.88 which is greater than -4.It worked!!!</p>
+
+<h3 id="why-did-it-work">Why did it work?</h3>
+
+<p>Let us step back a bit and try to gain intuition of stuff that is happening here.In order to analyse,first let us traverse through nodes from input to output i.e. in forward direction.We know the input value of <code class="highlighter-rouge">a</code>=5,<code class="highlighter-rouge">b</code>=-3,<code class="highlighter-rouge">c</code>=-2.We can easily find out value of <code class="highlighter-rouge">d</code> to be 2 which in turn makes <code class="highlighter-rouge">f</code>=-4.This is essentially known as forward pass through the network.This forward traversal is important because we would want to know the values of intermediate variables like <code class="highlighter-rouge">d</code>thus making it possible to analyse and find the derivatives.</p>
+
+<p>Let us now traverse through the nested nodes from output to input i.e. in backward direction.Our aim was to increase the value of <code class="highlighter-rouge">f</code> by manipulating <code class="highlighter-rouge">a</code>,<code class="highlighter-rouge">b</code> and <code class="highlighter-rouge">c</code>.In order to increase the value of <code class="highlighter-rouge">f</code>,as <code class="highlighter-rouge">c</code> is negative(-2) and <code class="highlighter-rouge">d</code> is positive(2) we would want to increase the value of c(with sign) and decrease the value of d.This effect is essentially captured by the derivative \(\Large\frac{\partial f}{\partial c}\) being positive(thus increasing value of <code class="highlighter-rouge">c</code> in update rule) and derivative \(\Large\frac{\partial f}{\partial d}\) being negative(thus decreasing the value of <code class="highlighter-rouge">d</code> in update rule).Now as we traverse furthur back through the addition node,in order to decrease value of <code class="highlighter-rouge">d</code>,both <code class="highlighter-rouge">a</code> and <code class="highlighter-rouge">b</code> have to decrease.Although the derivatives \(\Large\frac{\partial d}{\partial a}\) and \(\Large\frac{\partial d}{\partial b}\) are positive(1) the decreasing effect is captured by the negative value of \(\Large\frac{\partial f}{\partial d}\) thus making the products \(\Large\frac{\partial d}{\partial a}\)*\(\Large\frac{\partial f}{\partial d}\) and \(\Large\frac{\partial f}{\partial d}\)*\(\Large\frac{\partial d}{\partial b}\) negative and thus decreasing the value in update rules of <code class="highlighter-rouge">a</code> and <code class="highlighter-rouge">b</code>.</p>
+
+<p>This pass through the network from output to input is known as backward pass and this process of transfer of gradients or derivatives through the network from output to input is known as backpropogation.</p>
+
+<p>I will stop here.I hope that you have captured the intuition behind backpropagation and its nothing but chain rule applied over and over again.In the next post we will apply this algorithm to a standard neural network and develop an intuition of how things work there.</p>
+
+
+
+
+
+      </section>
+      <div id="disqus_thread"></div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+<script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+
+<script src="inlineDisqussions.js"></script>
+<script src="disqus.js"></script>
+                            
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        
+        <p class="copyright">maintained by <a href="https://github.com/jasdeep06">jasdeep06</a></p>
+        
+      </footer>
+    </div>
+
+
+
+  </body>
+</html>
