@@ -52,11 +52,7 @@ var disqus_url;
         $('<div id="disqussions_overlay"></div>').appendTo($('body'));
       }
 
-      // Attach a discussion to each paragraph.
-      $(this).each(function(i) {
-        disqussionNotesHandler(i, $(this));
-      });
-
+      
       // Display comments count.
       if (settings.displayCount) {
         loadDisqusCounter();
