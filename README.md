@@ -1,149 +1,185 @@
-# Further into Backpropagation
+# Neural Stacks-An Explanation
+Recently I stumbled upon [this](https://arxiv.org/pdf/1506.02516v3.pdf) paper by Google Deepmind titled "Learning to transduce with unbounded memory".I think it will be pretty fascinating to implement this paper.The implementation will be based on neural stacks accomplishing the sequence reversal task.We will first implement scaled down version of neural stacks using python and numpy and then look to implement it in tensorflow.As I would be implementing and posting subsequently as I get time,this section of blog may be updated less frequently(still pretty frequently!).There may be some mistakes in implementations and I may have to disregard my previous implementations to correct those mistakes. I suggest you to follow this portion of blog with open mind as I will post here open to suggestions and criticism.
 
-In the [previous post](https://jasdeep06.github.io/posts/Lets-practice-backpropagation/) we applied chain rule(funkily called backpropagation!) to systems with complex functions.In this post we will apply backpropagation to neural networks.We will start with a two layered network and then extend our discussion to three layered network.Note that instead of derivation of mathematical formulaes we will focus on intuitive sense of it.We will look to explore implementation of backpropagation with multiple inputs represented in form of matrix of training data.
+In this post I will first draw an outline of the task of sequence reversal using the neural stack.Then we will look at the design of neural stack and would implement the forward propagation through the stack.
+
+#### Lets get started!!!
+
+### **Outline**
+We know that Recurrent neural networks(RNNs) can use hidden layers as memory to process arbitrary sequences of inputs.But as the length of input sequence increase,the hidden layers have to increase in order to capture long term dependencies.This makes the net deeper.A deeper net should work well(at least in theory) but that is not the case.Various problems such as exploding and dying gradients,increase in number of parameters due to deeper nets etc. make the learning difficult and inefficient.
+To counter these difficulties,LSTM(Long short term memory) cells were introduced.Although they work really well as compared to vanilla RNNs,still they fail to generalize for longer strings in context of transduction tasks like sequence reversal etc.
+The main problem,according to me,this paper wants to tackle is of generalization of transduction tasks for larger strings as compared to the training data(because larger strings would require larger computational resources during training).The paper does this by introducing an extensible memory which is logically unbounded(i.e. infinite capacity in theory but definitely would be limited due to machine constraints).This memory structure(e.g. a neural stack) is controlled with the help of a Recurrent neural network.The benefit that we get from such arrangement is we get logically unbounded memory for our network which is independent from the parameter and nature of our RNN(unlike previously when we had to increase the depth of network to increase the memory capacity of our network).
+
+I hope this outline gave you an idea of what the author wants to achieve with this paper.According to me,during analysis of any research paper,outline is the most important tool.It gives us an idea of what is coming and a aligns our direction of thinking to that of the author's.
+
+### What is a Stack?
+Neural stack is inspired from one of the traditional data structure "Stack".A stack is a linear data structure that works on the principle of LIFO(Last-in-first-out).Just imagine a stack of books.You would stack them up one over another and at the time of retrival you will pick a book from top of the stack i.e. the one that was stacked last(in) would be retrived(out) first.
+The act of stacking up objects(here books or else numbers!) is called "push" operation while the act of retrieval is called "pop" operation.Another operation is possible in which we can read the object on top of the stack.This is called "peek/read" operation.For this paper,we will use the "read" term.
+Thus it is pretty straightforward to reverse a sequence using a traditional stack.Just push the string that we want to reverse into the stack(character-by-character/number-by-number you get that!) and just pop those entities out.Refer the figure:![stack](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/Stack.png?raw=true) 
+
+### Neural Stack
+
+Traditional stacks are fine but if we want to connect a stack with a recurrent network or in fact any network then it should be differentiable.Networks learn using backpropagation and for backpropagation of error every part of our network should be differentiable.Thus the mantra is 
+> "If it is differentiable,it is trainable"
+
+As our stack will be connected to a RNN,it should be differentiable as well.In order to render these stacks differentiable,the paper comes up with rendering the discrete operations push and pop continuous by representing them with a value in interval (0,1) which represent the degree of certainity with which the controller(RNN) wishes to push a vector (dbo)\Large\mathcal{v}(dbc) onto the stack or pop the top of the stack.
+
+#### Implementation of Neural Stack-
+
+The author implements the neural stacks by using a value matrix (dbo)\Large{V}(dbc) which acts as a expandable stack for storing the vectors as they are pushed.Each vector in the value matrix has a strength value which is stored in another vector called strength vector (dbo)\Large{s}(dbc).The strength values of vectors in value matrix can be seen as certainty by which the vector is in the value matrix.A zero strength value would signify the absence of corresponding
+vector from the value matrix. Both strength vector and value matrix expand with time as new values are pushed into the value matrix.
+
+The implementation of neural stack is based on three key formulas.I will explain the significance of these formulas and their respective python implementation.
+
+The first formula gives description of our value matrix:
+
+![f1](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/f1.png?raw=true)
+
+The above formula represents the effect of push operation on our value matrix,(dbo)\Large{V_t}(dbc).Assuming on every time step we push into our value matrix,the index (dbo)\Large{i}(dbc) represents the (dbo)\Large{i_{th}}(dbc) entry in our value matrix.
+Thus at any time instant (dbo)\Large{t}(dbc),our value matrix would be comprised of all the vectors pushed until time (dbo)\Large{t}(dbc) and the vector pushed at the time (dbo)\Large{t}(dbc) i.e. (dbo)\Large{v_{t}}(dbc).
+One of the important things to take note here is that,once a vector is added to our value matrix,it is never modified.For modifications during pop operations we modify strength vector rather than vectors in our value matrix. 
+
+The second formula describes our strength vector:
+
+![f2](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/f2.png?raw=true)
+
+The above formula represents the effect of push and pop operations on our strength vector.
+(dbo)\Large{u_t}(dbc) is the pop signal and (dbo)\Large{d_t}(dbc) is the push signal.Both the value lie in the range (0,1).(dbo)\Large{s_t}(dbc) denotes the strength vector at time (dbo)\Large{t}(dbc) while (dbo)\Large{s_{t-1}}(dbc) is the strength vector at time (dbo)\Large{t-1}(dbc).
+When we receive a pop signal((dbo)\Large{u_t}(dbc)), we traverse down the strength vector from highest index to lowest index repeatedly subtracting the scalars of (dbo)\Large{s_{t-1}}(dbc) from (dbo)\Large{u_t}(dbc).If (dbo)\Large{u_{t}}(dbc) is greater than the next scalar then that scalar is set to zero(of course after subtraction!) and the traversal continues.If (dbo)\Large{u_t}(dbc) is less than the next scalar then (dbo)\Large{u_t}(dbc) is subtracted from that scalar and traversal stops.
+When we receive a push signal((dbo)\Large{d_t}(dbc)),the (dbo)\Large{t_{th}}(dbc) entry of the strength vector is modified as (dbo)\Large{d_t}(dbc).
+When push and pop signals are received first pop takes place which is followed by push.
+Have a look at figures below to clarify notations and pop operation:The first figure will be referred to as "reference-figure".
+![notation](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/Notation.png?raw=true)
+														
+![pop](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/Pop.png?raw=true)
+                                                        
+
+This process of modification of strength vector can be represented in python as:
 
 
-##### Lets get started!!!
+	#initializing strength dictionary
+    strength={}
+    def strength_time(time,push_certainity,pop_certainity):
+	#reversed because we want to traverse stack from top to #bottom(recent to initial)
+    for var in reversed(range(time)):
+        if strength[var]<pop_certainity:
+			pop_certainity-=strength[var]
+	        strength[var] = 0
+        else:
+            strength[var]-=pop_certainity
+            pop_certainity = 0
+            break
+	#push operation
+    strength[time] = push_certainity
+  
+The third formula describes the read operation
+![f3](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/f3.png?raw=true)  
 
-Consider the network:
+The above formula represents the read vector.While reading from our stack,we set a fixed initial read quantity of 1.A temporary copy of strength vector is made.Similar to pop operation,the copy of strength vector is traversed from highest index to lowest.If the next scalar is less than the read value then its value is preserved and is subtracted from the read quantity.If the next scalar is more than read value then its value is made equal to remaining read quantity and rest all scalars are set to zero.This resulting copy of strength values is then multiplied with corresponding vectors in value matrix and by adding these product values read vector is generated.
+Have a look at figure below to make things clearer:
+![read](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/read.png?raw=true)
 
-The figure consists of a two layered network.The first layer is the input layer and contains 3 nodes.The second layer is output layer and contains two nodes.In a standard neural network,the sigmoid layer is a part of output layer.For clarity of concept I have drawn it as a separate layer.The sigmoid layer quashes the output values in the range of 0 and 1.The two layers are connected to each other with weights which are represented by edges in the figure.Each node of first layer is connected to every node of second layer.
+Implementing this in python we get:
 
-For those who don't know how neural networks work here is a short description(Note that this is just a very simple and crude explaination and is sufficient for this post.However,to appriciate the exact mechanism behind it consult  [other](https://en.wikipedia.org/wiki/Artificial_neural_network) resources too):
-The input to the network is pumped through input layer.Here our inputs would be 3 dimensional as there are three nodes in our layer.These dimensions are also referred to as features.The inputs are multiplied with randomly initialized weights usually in form of matrix.The output of this matrix multiplication is subjected to a sigmoid function.The sigmoidal outputs are used to generate cost function.A cost function is a function that is a measure of deviation of our output from the actual value during the training of network.For this post we will use [cross-entropy](https://en.wikipedia.org/wiki/Cross_entropy) cost function.The nodes in output layer of our network represent different classes to which the input has to be classified.During the training of network we have a label corresponding to every input.This label represents the true class of that input.
-###### Aim
-Our aim would be adjust the value of weights such that our cost function in minimum(i.e. the deviation of our output from actual value is minimum).
+    def read_time(time):
+    #returns read vector at time 'time'
 
-So where do we start?If you are following the posts in series then you would know the answer to this!Thats right!Our update rules.Here we have to manipulate the values of weights to decrease the value of our cost thereby minimizing it.Thus updating weights to decrease the cost:
+    #initial read value of 1
+    read=1
+    read_vector=np.zeros(input_size)
+    #duplicate of strenth vector to modify it at time of read operation
+    temp_strength=copy.deepcopy(strength)
+    #traversing through strength vector from top
+    for var in reversed(range(time+1)):
+        if temp_strength[var]<read:
+            read-=temp_strength[var]
+        else:
+            temp_strength[var]=read
+			
+            unwanted=set(temp_strength.keys())-set(range(var,time+1))
+			#setting rest to 0
+            for keys in unwanted:
+                temp_strength[keys]=0
+	        break
 
-(dollar)\Large{W_{ij}}={W_{ij}}-h(mul)\frac{\partial C}{\partial W_{ij}}(dollar)
+    for var in Value.keys():
+        read_vector+=(temp_strength[var]*Value[var])
 
-where (dbo)\Large{W_{ij}}(dbc) denotes weight connecting (dbo)\Large{i^th}(dbc) node in input layer to (dbo)\Large{j^th}(dbc) node in output layer.
+    return read_vector
 
-We have to somehow find the value of (dbo)\frac{\partial C}{\partial W_{ij}}(dbc) and fill it in our update rule which would decrease the cost function(due to the minus sign).
-
-Now that we know what we desire,lets analyse our cost function `C`.To do this we must first forward propagate through our network to analyse the dependencies of our cost function.Here we would take only one training example which would enable us to appriciate the intricacies better and from there we would extend this to multiple training examples.
-
-#### Forward Propagation
-The training example on which this analysis will be based is (dbo)\Large{x_1},{x_2},x_3}(dbc) which can be represented in form of 1X3 matrix as:
-(dollar)\Large{X}=\begin{bmatrix}x_1 & x_2& x_3\end{bmatrix}(dollar)
-The weights can also be represented in form of a 3x2 matrix as (dollar)\Large{W}=\begin{bmatrix}W_{11} & W_{12} \\W_{21} & W_{22}\\W_{31} & W_{32}\end{bmatrix}(dollar)
-The output before application of sigmoid can easily be found out by multiplying the two matrix to generate a 1x2 output matrix:
-(dollar)\begin{bmatrix}x_1 & x_2& x_3\end{bmatrix}(mul)\begin{bmatrix}W_{11} & W_{12} \\W_{21} & W_{22}\\W_{31} & W_{32}\end{bmatrix}=\begin{bmatrix}x_1W_{11}+x_2W_{21}+x_3W_{31} & x_1W_{12}+x_2W_{22}+x_3W_{32}\end{bmatrix}(dollar)
-
-Note that the output matrix is a 1x2 matrix with two elements of which one belongs to the first node and other to the second node for a single training example.Let this matrix be represented as:
-(dollar){y}=\begin{bmatrix}x_1W_{11}+x_2W_{21}+x_3W_{31} & x_1W_{12}+x_2W_{22}+x_3W_{32}\end{bmatrix}\equiv{\begin{bmatrix}y_1&y_2\end{bmatrix}}(dollar) where (dbo){y_1},{y_2},{y}(dbc) are placeholders to facilitate understanding.
-
-Applying sigmoid on this matrix we get:
-
-(dollar){y_o}=\begin{bmatrix}sigmoid(y_1)&sigmoid(y_2)\end{bmatrix}\equiv{\begin{bmatrix}y_{o1}&y_{o2}\end{bmatrix}}(dollar) where (dbo){y_{o1}},{y_{o2}},{y_o}(dbc) are placeholders.
-
-
-### Cost function
-(dbo){y_{o1}},{y_{o2}}(dbc) obtained from forward propagation are used in cost function.Here we are using [cross-entropy](https://en.wikipedia.org/wiki/Cross_entropy) cost function which is given by:
-
-(dollar)\Large{C}=-\frac{1}{N}\sum_i{p_i(mul)log(q_i)}(dollar)
-
-where (dbo){i}(dbc) is the number of catagories for classification(equivalent to number of nodes in output unit),(dbo){p_i}(dbc) is true label of that class and (dbo){q_i}(dbc) is predicted value and N is total number of training examples.
-
-For this system (dbo){i}=2(dbc) (as number of nodes in output layer=2 i.e. 2 classification classes).(dbo)q_1=y_{o1}(dbc) and (dbo)q_2=y_{o2}(dbc) as they are the predicted value of the two classes.When we train our network against training data,the label corresponding to a training example would be known.The label represents the class that the training example belongs to.Here let us assume that the training example belongs to the first class.This would make the label values of all other classes to be zero and of the first class as 1.Thus here (dbo){p_1}=1(dbc) and (dbo){p_2}=0(dbc).Expanding our cost function for i=2,we get:
-(dollar)\Large{C}=-\frac{1}{N}(mul)(p_1log(q_1)+p_2log(q_2))(dollar)
-Putting corresponding values we get:
-
-(dollar)\Large{C}=-(p_1(mul)log(y_{o1})+p_2(mul)log(y_{o2}))(dollar)
-
-### Backpropagation
-Let us first revisit the matrices that we have:
-A pre sigmoidal output matrix (dollar){y}={\begin{bmatrix}y_1&y_2\end{bmatrix}}(dollar)
-A post sigmoidal output matrix (dollar){y_o}{\begin{bmatrix}y_{o1}&y_{o2}\end{bmatrix}}(dollar)
-Our weight matrix (dollar)\begin{bmatrix}W_{11} & W_{12} \\W_{21} & W_{22}\\W_{31} & W_{32}\end{bmatrix}(dollar)
-Our input matrix (dollar){X}=\begin{bmatrix}x_1 & x_2& x_3\end{bmatrix}(dollar)
-
-Remember that we had to find the value of (dbo)\frac{\partial C}{\partial W_{ij}}(dbc) to put into update rule which would decrease the cost.We will find this value by applying chain rule as we have done in previous posts but the only difference here will be that we would be dealing with matrices instead of individual variables.While applying chain rule we will focus on the parallelism in dealing with matrices and variables thereby making the transition to matrices smoother and intuitive.
-
-If we look at our network figure and our cost function,we notice that our cost function is a function of (dbo){y_{o1}},{y_{o2}}(dbc) which is represented in (dbo){y_{o}}(dbc} matrix which is a function of (dbo){y_{1}},{y_{2}}(dbc) which is represented in (dbo){y}(dbc} matrix which is function of inputs and weights.
-
-Let us move back through the system from cost function to input layer and write the chain rule.First we will move back from one node to other and alongside it we will represent layerwise movement in terms of matrices.
-
- - From cost function towards sigmoid layer
-		 (dollar)\Large{C}=-((p_1(mul)log(y_{o1})+p_2(mul)log(y_{o2}))(dollar))
-		 We can easily write the derivatives:
-		 (dollar)\Large\frac{\partial C}{\partial y_{o1}}=-(\frac{p_1}{y_{o1})
-		 (dollar)\Large\frac{\partial C}{\partial y_{o2}}=-(\frac{p_2}{y_{o2})
-		 We can represent this in form of a matrix:
-		 (dollar)\Large\frac{\partial C}{\partial y_{o}}=\begin{bmatrix} -(\frac{p_1}{y_{o1}})& -(\frac{p_2}{y_{o2}})\end{bmatrix}(dollar)
-		 
- - Through the sigmoid layer-
-	 From our experiences in previous posts we can easily write the sigmoid derivatives as:
-	  (dollar)\Large\frac{\partial y_{o1}}{\partial y_1}=\sigma({y_1})(mul)(1-\sigma({y_1}))(dollar)
-	  (dollar)\Large\frac{\partial y_{o2}}{\partial y_2}=\sigma({y_2})(mul)(1-\sigma({y_2}))(dollar)
-	  We can represent this in matrix form:
-	   (dollar)\Large\frac{\partial y_o}{\partial y}=\begin{bmatrix} \sigma({y_1})(mul)(1-\sigma({y_1}))&\sigma({y_2})(mul)(1-\sigma({y_2}))\end{bmatrix}(dollar)
- - Through the pre sigmoidal output layer towards the weights
-	 We know the relations (dollar){y_1}=x_1W_{11}+x_2W_{21}+x_3W_{31}(dollar) and (dollar){y_2}=x_1W_{12}+x_2W_{22}+x_3W_{32}(dollar).From these we can easily find the derivatives:
-	 (dollar)\Large\frac{\partial {y_1}}{\partial W_{11}}=x_1(dollar)
-	 (dollar)\Large\frac{\partial {y_1}}{\partial W_{21}}=x_2(dollar)
-	 (dollar)\Large\frac{\partial {y_1}}{\partial W_{31}}=x_3(dollar)
-	 (dollar)\Large\frac{\partial {y_2}}{\partial W_{12}}=x_1(dollar)
-	 (dollar)\Large\frac{\partial {y_2}}{\partial W_{22}}=x_2(dollar)
-	 (dollar)\Large\frac{\partial {y_2}}{\partial W_{32}}=x_3(dollar)
-
-Let us chain all the derivatives elementwise first.Then we will convert it into matrix representation. 
-	 (dollar)\Large\frac{\partial {C}}{\partial W_{11}}=\frac{\partial C}{partial {y_{o1}}(mul)\frac{\partial y_{o1}}{\partial y_1}(mul)\frac{\partial {y_1}}{\partial W_{11}}(dollar)
-	 Putting the respective values we get-
-	 (dollar)\Large\frac{\partial {C}}{\partial W_{11}}=\frac{-p_1}{y_{o1}}(mul)\sigma({y_1})(mul)(1-\sigma({y_1}))(mul)x_1
-	 Similarly we can write this for all the W's and place them in a matrix as-
-	 (dollar)\Large\frac{\partial {C}}{\partial W}=\begin{bmatrix} -(\frac{p_1}{y_{o1}})(mul)\sigma({y_1})(mul)(1-\sigma({y_1}))(mul)x_1& -(\frac{p_2}{y_{o2}})(mul)\sigma({y_2})(mul)(1-\sigma({y_2}))(mul)x_1\\-(\frac{p_1}{y_{o1}})(mul)\sigma({y_1})(mul)(1-\sigma({y_1}))(mul)x_2&-(\frac{p_2}{y_{o2}})(mul)\sigma({y_2})(mul)(1-\sigma({y_2}))(mul)x_2\\-(\frac{p_1}{y_{o1}})(mul)\sigma({y_1})(mul)(1-\sigma({y_1}))(mul)x_3&-(\frac{p_2}{y_{o2}})(mul)\sigma({y_2})(mul)(1-\sigma({y_2}))(mul)x_3\end{bmatrix}(dollar)
-Observe the above matrix.It is nothing but the combination (dbo){X^T}*{\frac{\partial C}{\partial y_{o}}.\frac{\partial y_o}{\partial y}(dbc)
-
-where T denotes transpose of matrix and " * " denotes matrix product while " . "denotes element-wise product.
-Now we can put this expression in our update rule:
-(dollar)\Large{W}=W-h*{X^T}*{\frac{\partial C}{\partial y_{o}}.\frac{\partial y_o}{\partial y}(dollar)
-The python representation can be given as:
+Checking our implementation:
+Below code is consistent with our read figure.Four vectors are pushed into our value matrix with the help of pushPop function.  
 
     import numpy as np
-	import random
+	import copy
+	Value={}
+	strength={}
+	input_size=4
 
-	def sigmoid(x):
-    return 1/(1+np.exp(-x))
-	def derivative_sigmoid(x):
-    return np.multiply(sigmoid(x),(1-sigmoid(x)))
+	value_1=np.zeros(input_size)
+	value_1[0]=1
+	value_2=np.zeros(input_size)
+	value_2[1]=1
+	value_3=np.zeros(input_size)
+	value_3[2]=1
+	value_4=np.zeros(input_size)
+	value_4[3]=1
 
-	#initialization
-	X=np.matrix("2,4,-2")
-	W=np.random.normal(size=(3,2))
-	#label
-	ycap=[0]
-	#number of training of examples
-	num_examples=1
-	#step size
-	h=.01
-	#forward-propogation
-	y=np.dot(X,W)
-	y_o=sigmoid(y)
-	#loss calculation
-	loss=-np.sum(np.log(y_o[range(1),ycap]))
-	print(loss)
-	#backprop starts
-	temp1=np.copy(y_o)
-	#implementation of derivative of cost function with respect to y_o
-	temp1[range(num_examples),ycap]=1/-(temp1[range(1),ycap])
-	temp=np.zeros_like(y_o)
-	temp[range(num_examples),ycap]=1
-	#derivative of cost with respect to y_o
-	dcost=np.multiply(temp,temp1)
-	#derivative of y_o with respect to y
-	dy_o=derivative_sigmoid(y)
-	#element-wise multiplication
-	dgrad=np.multiply(dcost,dy_o)
-	dw=np.dot(X.T,dgrad)
-	#weight-update
-	W-=h*dw
-	#forward prop again with updated weight to find new loss
-	y=np.dot(X,W)
-	yo=sigmoid(y)
-	loss=-np.sum(np.log(yo[range(1),ycap]))
-	print(loss)
+	def read_time(time):
+    #returns read vector at time 'time'
 
-Above program shows only one iteration of backpropagation and can be extend to multiple iterations to minimize the cost function.
+	#initial read value of 1
+    read=1
+    read_vector=np.zeros(input_size)
+    #duplicate of strength vector to modify it at time of read operation
+    temp_strength=copy.deepcopy(strength)
+
+    #traversing through strength vector from top
+    for var in reversed(range(time+1)):
+        if temp_strength[var]<read:
+            read-=temp_strength[var]
+        else:
+            temp_strength[var]=read
+
+            unwanted=set(temp_strength.keys())-set(range(var,time+1))
+
+            for keys in unwanted:
+                temp_strength[keys]=0
+            break
+    
+    for var in Value.keys():
+        read_vector+=(temp_strength[var]*Value[var])
+
+    return read_vector
+
+	def strength_time(time,push_certainity,pop_certainity):
+	for var in reversed(range(time)):
+        if strength[var]<pop_certainity:
+
+            pop_certainity-=strength[var]
+            strength[var] = 0
+        else:
+            strength[var]-=pop_certainity
+            pop_certainity = 0
+            break
+
+    strength[time] = push_certainity
+    print(strength)
+
+	def pushPop(push_value,push_certainity,pop_certainity,time):
+
+    strength_time(time,push_certainity,pop_certainity)
+    Value[time]=push_value
+    return read_time(time)
+
+	pushPop(value_1,0.5,0,0)
+	pushPop(value_2,0.6,0,1)
+	pushPop(value_3,0.3,0,2)
+	print(pushPop(value_4,0.4,0,3))#prints [0 .3 .3 .4]
+
+Above program outputs [0 .3 .3 .4] which is consistent with 0.4*v4+0.3*v3+0.3*v2+0*v1.
+
+In the next post we will look to implement backpropagation through our neural stack.
+
+
 
