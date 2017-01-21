@@ -62,12 +62,12 @@ This process of modification of strength vector can be represented in python as:
 	#reversed because we want to traverse stack from top to #bottom(recent to initial)
     for var in reversed(range(time)):
         if strength[var]<pop_certainity:
-			pop_certainity-=strength[var]
+		pop_certainity-=strength[var]
 	        strength[var] = 0
         else:
-            strength[var]-=pop_certainity
-            pop_certainity = 0
-            break
+        	strength[var]-=pop_certainity
+        	pop_certainity = 0
+            	break
 	#push operation
     strength[time] = push_certainity
   
@@ -82,99 +82,87 @@ Implementing this in python we get:
 
     def read_time(time):
     #returns read vector at time 'time'
-
     #initial read value of 1
-    read=1
-    read_vector=np.zeros(input_size)
+    	read=1
+    	read_vector=np.zeros(input_size)
     #duplicate of strenth vector to modify it at time of read operation
-    temp_strength=copy.deepcopy(strength)
+    	temp_strength=copy.deepcopy(strength)
     #traversing through strength vector from top
-    for var in reversed(range(time+1)):
-        if temp_strength[var]<read:
-            read-=temp_strength[var]
-        else:
-            temp_strength[var]=read
-			
-            unwanted=set(temp_strength.keys())-set(range(var,time+1))
-			#setting rest to 0
-            for keys in unwanted:
-                temp_strength[keys]=0
+    	for var in reversed(range(time+1)):
+            if temp_strength[var]<read:
+            	read-=temp_strength[var]
+            else:
+            	temp_strength[var]=read
+		unwanted=set(temp_strength.keys())-set(range(var,time+1))
+	    #setting rest to 0
+            	for keys in unwanted:
+                	temp_strength[keys]=0
 	        break
 
-    for var in Value.keys():
-        read_vector+=(temp_strength[var]*Value[var])
+   	for var in Value.keys():
+            read_vector+=(temp_strength[var]*Value[var])
 
-    return read_vector
+        return read_vector
 
 Checking our implementation:
 Below code is consistent with our read figure.Four vectors are pushed into our value matrix with the help of pushPop function.  
 
     import numpy as np
-	import copy
-	Value={}
-	strength={}
-	input_size=4
+    import copy
+    Value={}
+    strength={}
+    input_size=4
+    value_1=np.zeros(input_size)
+    value_1[0]=1	#[1 0 0 0]
+    value_2=np.zeros(input_size)
+    value_2[1]=1	#[0 1 0 0]
+    value_3=np.zeros(input_size)
+    value_3[2]=1	#[0 0 1 0]
+    value_4=np.zeros(input_size)
+    value_4[3]=1	#[0 0 0 1]
 
-	value_1=np.zeros(input_size)
-	value_1[0]=1
-	value_2=np.zeros(input_size)
-	value_2[1]=1
-	value_3=np.zeros(input_size)
-	value_3[2]=1
-	value_4=np.zeros(input_size)
-	value_4[3]=1
-
-	def read_time(time):
+    def read_time(time):
     #returns read vector at time 'time'
-
-	#initial read value of 1
-    read=1
-    read_vector=np.zeros(input_size)
+    #initial read value of 1
+    	read=1
+    	read_vector=np.zeros(input_size)
     #duplicate of strength vector to modify it at time of read operation
-    temp_strength=copy.deepcopy(strength)
-
+    	temp_strength=copy.deepcopy(strength)
     #traversing through strength vector from top
-    for var in reversed(range(time+1)):
-        if temp_strength[var]<read:
-            read-=temp_strength[var]
-        else:
-            temp_strength[var]=read
-
-            unwanted=set(temp_strength.keys())-set(range(var,time+1))
-
-            for keys in unwanted:
-                temp_strength[keys]=0
-            break
+    	for var in reversed(range(time+1)):
+            if temp_strength[var]<read:
+            	read-=temp_strength[var]
+            else:
+                temp_strength[var]=read
+                unwanted=set(temp_strength.keys())-set(range(var,time+1))
+	        for keys in unwanted:
+                    temp_strength[keys]=0
+                break
     
-    for var in Value.keys():
-        read_vector+=(temp_strength[var]*Value[var])
+        for var in Value.keys():
+            read_vector+=(temp_strength[var]*Value[var])
+        return read_vector
 
-    return read_vector
-
-	def strength_time(time,push_certainity,pop_certainity):
+    def strength_time(time,push_certainity,pop_certainity):
 	for var in reversed(range(time)):
-        if strength[var]<pop_certainity:
+            if strength[var]<pop_certainity:
+	        pop_certainity-=strength[var]
+                strength[var] = 0
+            else:
+                strength[var]-=pop_certainity
+                pop_certainity = 0
+                break
+	strength[time] = push_certainity
+	
+     def pushPop(push_value,push_certainity,pop_certainity,time):
+        strength_time(time,push_certainity,pop_certainity)
+    	Value[time]=push_value
+    	return read_time(time)
 
-            pop_certainity-=strength[var]
-            strength[var] = 0
-        else:
-            strength[var]-=pop_certainity
-            pop_certainity = 0
-            break
-
-    strength[time] = push_certainity
-    print(strength)
-
-	def pushPop(push_value,push_certainity,pop_certainity,time):
-
-    strength_time(time,push_certainity,pop_certainity)
-    Value[time]=push_value
-    return read_time(time)
-
-	pushPop(value_1,0.5,0,0)
-	pushPop(value_2,0.6,0,1)
-	pushPop(value_3,0.3,0,2)
-	print(pushPop(value_4,0.4,0,3))#prints [0 .3 .3 .4]
+    pushPop(value_1,0.5,0,0)
+    pushPop(value_2,0.6,0,1)
+    pushPop(value_3,0.3,0,2)
+    print(pushPop(value_4,0.4,0,3))#prints [0 .3 .3 .4]
 
 Above program outputs [0 .3 .3 .4] which is consistent with 0.4*v4+0.3*v3+0.3*v2+0*v1.
 
