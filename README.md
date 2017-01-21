@@ -50,7 +50,6 @@ When we receive a push signal((dbo)\Large{d_t}(dbc)),the (dbo)\Large{t_{th}}(dbc
 When push and pop signals are received first pop takes place which is followed by push.
 Have a look at figures below to clarify notations and pop operation:The first figure will be referred to as "reference-figure".
 ![notation](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/Notation.png?raw=true)
-														
 ![pop](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/Pop.png?raw=true)
                                                         
 
