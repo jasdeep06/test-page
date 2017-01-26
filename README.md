@@ -1,172 +1,259 @@
-# Neural Stacks-An Explanation
-Recently I stumbled upon [this](https://arxiv.org/pdf/1506.02516v3.pdf) paper by Google Deepmind titled "Learning to transduce with unbounded memory".I think it will be pretty fascinating to implement this paper.The implementation will be based on neural stacks accomplishing the sequence reversal task.We will first implement scaled down version of neural stacks using python and numpy and then look to implement it in tensorflow.As I would be implementing and posting subsequently as I get time,this section of blog may be updated less frequently(still pretty frequently!).There may be some mistakes in implementations and I may have to disregard my previous implementations to correct those mistakes. I suggest you to follow this portion of blog with open mind as I will post here open to suggestions and criticism.
+# Getting started with Tensorflow
+It has been almost a year since Tensorflow was released by Google.Although there are a lot of deep learning libraries available(like Theano etc.) but Tensorflow is pretty big!One of the prominent reason is being backed by the big fish,Google! Also tensorflow has pretty great support for distributed systems.Considering the open-source popularity of tensorflow and recent advancements in neural network research,this library is here to stay. 
 
-In this post I will first draw an outline of the task of sequence reversal using the neural stack.Then we will look at the design of neural stack and would implement the forward propagation through the stack.
+In this post we will not only introduce tensorflow but also take a under-the-hood trip to its working.We will start off by going through basics of using tensorflow and analyze "computational graphs" that form the basis of tensorflow's working.Later we will build a linear regression model that would further clarify its working.
 
 #### Lets get started!!!
 
-### **Outline**
-We know that Recurrent neural networks(RNNs) can use hidden layers as memory to process arbitrary sequences of inputs.But as the length of input sequence increase,the hidden layers have to increase in order to capture long term dependencies.This makes the net deeper.A deeper net should work well(at least in theory) but that is not the case.Various problems such as exploding and dying gradients,increase in number of parameters due to deeper nets etc. make the learning difficult and inefficient.
-To counter these difficulties,LSTM(Long short term memory) cells were introduced.Although they work really well as compared to vanilla RNNs,still they fail to generalize for longer strings in context of transduction tasks like sequence reversal etc.
-The main problem,according to me,this paper wants to tackle is of generalization of transduction tasks for larger strings as compared to the training data(because larger strings would require larger computational resources during training).The paper does this by introducing an extensible memory which is logically unbounded(i.e. infinite capacity in theory but definitely would be limited due to machine constraints).This memory structure(e.g. a neural stack) is controlled with the help of a Recurrent neural network.The benefit that we get from such arrangement is we get logically unbounded memory for our network which is independent from the parameter and nature of our RNN(unlike previously when we had to increase the depth of network to increase the memory capacity of our network).
+When we come across the name "Tensorflow",the first thing that invariably comes to mind is the word "tensor".Why "tensor"flow?What is a "tensor"?Well,not dwelling too much on its mathematical representation,consider tensor as a multidimensional array of numbers.Thus all scalars,vectors,matrices fall under the category of tensors.
+Let us try to add two tensors in tensorflow-
 
-I hope this outline gave you an idea of what the author wants to achieve with this paper.According to me,during analysis of any research paper,outline is the most important tool.It gives us an idea of what is coming and a aligns our direction of thinking to that of the author's.
+    #import tensorflow
+    import tensorflow as tf
+    #declare constants
+    a=tf.constant(2,name="a")
+    b=tf.constant(3,name"b")
+    c=tf.add(a,b,name="c")
+In above program the function `tf.constant(value)` is used to declare a constant of value `value`  and `tf.add(a,b)` is used to add two tensors `a` and `b`. Let us now try to print the value of `c`:
 
-### What is a Stack?
-Neural stack is inspired from one of the traditional data structure "Stack".A stack is a linear data structure that works on the principle of LIFO(Last-in-first-out).Just imagine a stack of books.You would stack them up one over another and at the time of retrival you will pick a book from top of the stack i.e. the one that was stacked last(in) would be retrived(out) first.
-The act of stacking up objects(here books or else numbers!) is called "push" operation while the act of retrieval is called "pop" operation.Another operation is possible in which we can read the object on top of the stack.This is called "peek/read" operation.For this paper,we will use the "read" term.
-Thus it is pretty straightforward to reverse a sequence using a traditional stack.Just push the string that we want to reverse into the stack(character-by-character/number-by-number you get that!) and just pop those entities out.Refer the figure:![stack](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/Stack.png?raw=true) 
+    #import tensorflow
+    import tensorflow as tf
+    #declare constants
+    a=tf.constant(2,name="a")
+    b=tf.constant(3,name="b")
+    c=tf.add(a,b,name="c")
+    print(c)
+Output-
 
-### Neural Stack
+	Tensor("Add:0", shape=(), dtype=int32)
 
-Traditional stacks are fine but if we want to connect a stack with a recurrent network or in fact any network then it should be differentiable.Networks learn using backpropagation and for backpropagation of error every part of our network should be differentiable.Thus the mantra is 
-> "If it is differentiable,it is trainable"
+Instead of a scalar tensor valued 5,the above program prints a weird tensor object.Why does this happen?Well,at first it might seem that the operations that we do in tensorflow are direct operations on multidimensional arrays but the truth is drastically different.This difference is actually the essence of tensorflow!
+When we do computations in tensorflow,instead of running them directly,tensorflow constructs a "computation graph".
 
-As our stack will be connected to a RNN,it should be differentiable as well.In order to render these stacks differentiable,the paper comes up with rendering the discrete operations push and pop continuous by representing them with a value in interval (0,1) which represent the degree of certainity with which the controller(RNN) wishes to push a vector (dbo)\Large\mathcal{v}(dbc) onto the stack or pop the top of the stack.
+#### Computation Graph
+Computation graph in tensorflow can be considered as network of nodes,with each node representing an operation.From generation of constant tensors to mathematical operations on them,all are represented in form of nodes and are referred to as ops.For our example of adding two constant tensors the computational graph can be visualized as:
+![graph](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/getting-started-with-tensorflow/images/graph.png?raw=true)
+One of the important aspect of computation graph is that it does not has any numerical value until it is explicitly evaluated or run.Thus when we printed the value of `c` above it returned a tensor object rather than returning the numerical value of added tensors.
 
-#### Implementation of Neural Stack-
+So the next logical question is "**how do we run this computation graph?**".
 
-The author implements the neural stacks by using a value matrix (dbo)\Large{V}(dbc) which acts as a expandable stack for storing the vectors as they are pushed.Each vector in the value matrix has a strength value which is stored in another vector called strength vector (dbo)\Large{s}(dbc).The strength values of vectors in value matrix can be seen as certainty by which the vector is in the value matrix.A zero strength value would signify the absence of corresponding
-vector from the value matrix. Both strength vector and value matrix expand with time as new values are pushed into the value matrix.
+In order to run a computation graph in tensorflow,a context is required.This context is encapsulated by a **Session** object.To clarify this concept,have a look at the code below:
 
-The implementation of neural stack is based on three key formulas.I will explain the significance of these formulas and their respective python implementation.
+    #import tensorflow
+    import tensorflow as tf
+    #declare constants
+    a=tf.constant(2,name="a")
+    b=tf.constant(3,name="b")
+    c=tf.add(a,b,name="c")
+    #create a session
+    with tf.Session() as sess:
+	    #running the computation in session
+	    print(sess.run(c))
+Output-
 
-The first formula gives description of our value matrix:
+    5
 
-![f1](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/f1.png?raw=true)
+A Session object is created by the method `tf.Session()`.The computation `c` in our computation graph would run in this session by calling the `sess.run(c)` method.The addition computation runs in our Session `sess` and yields a value of `5`.
+To avoid of passing the computation from the run method of our session object,tensorflow has concept of **Interactive Session**.Once an InteractiveSession object is created,a computation can be evaluated by calling the `eval()` method on it(instead of previously passing the computation from `run` method of Session object).This comes in handy when dealing with Ipython notebooks and other interactive environments.Have a look at the implementation below:
 
-The above formula represents the effect of push operation on our value matrix,(dbo)\Large{V_t}(dbc).Assuming on every time step we push into our value matrix,the index (dbo)\Large{i}(dbc) represents the (dbo)\Large{i_{th}}(dbc) entry in our value matrix.
-Thus at any time instant (dbo)\Large{t}(dbc),our value matrix would be comprised of all the vectors pushed until time (dbo)\Large{t}(dbc) and the vector pushed at the time (dbo)\Large{t}(dbc) i.e. (dbo)\Large{v_{t}}(dbc).
-One of the important things to take note here is that,once a vector is added to our value matrix,it is never modified.For modifications during pop operations we modify strength vector rather than vectors in our value matrix. 
+    #import tensorflow
+    import tensorflow as tf
+    #declare constants
+    a=tf.constant(2,name="a")
+    b=tf.constant(3,name="b")
+    c=tf.add(a,b,name="c")
+    #create an Interactive session
+    sess=tf.InteractiveSession()
+    #just call eval() on the computation to be evaluated.
+	print(c.eval())
+Output-
 
-The second formula describes our strength vector:
-
-![f2](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/f2.png?raw=true)
-
-The above formula represents the effect of push and pop operations on our strength vector.
-(dbo)\Large{u_t}(dbc) is the pop signal and (dbo)\Large{d_t}(dbc) is the push signal.Both the value lie in the range (0,1).(dbo)\Large{s_t}(dbc) denotes the strength vector at time (dbo)\Large{t}(dbc) while (dbo)\Large{s_{t-1}}(dbc) is the strength vector at time (dbo)\Large{t-1}(dbc).
-When we receive a pop signal((dbo)\Large{u_t}(dbc)), we traverse down the strength vector from highest index to lowest index repeatedly subtracting the scalars of (dbo)\Large{s_{t-1}}(dbc) from (dbo)\Large{u_t}(dbc).If (dbo)\Large{u_{t}}(dbc) is greater than the next scalar then that scalar is set to zero(of course after subtraction!) and the traversal continues.If (dbo)\Large{u_t}(dbc) is less than the next scalar then (dbo)\Large{u_t}(dbc) is subtracted from that scalar and traversal stops.
-When we receive a push signal((dbo)\Large{d_t}(dbc)),the (dbo)\Large{t_{th}}(dbc) entry of the strength vector is modified as (dbo)\Large{d_t}(dbc).
-When push and pop signals are received first pop takes place which is followed by push.
-Have a look at figures below to clarify notations and pop operation:The first figure will be referred to as "reference-figure".
-![notation](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/Notation.png?raw=true)
-![pop](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/Pop.png?raw=true)
-                                                        
-
-This process of modification of strength vector can be represented in python as:
+    5
 
 
-	#initializing strength dictionary
-    strength={}
-    def strength_time(time,push_certainity,pop_certainity):
-	#reversed because we want to traverse stack from top to #bottom(recent to initial)
-    for var in reversed(range(time)):
-        if strength[var]<pop_certainity:
-		pop_certainity-=strength[var]
-	        strength[var] = 0
-        else:
-        	strength[var]-=pop_certainity
-        	pop_certainity = 0
-            	break
-	#push operation
-    strength[time] = push_certainity
-  
-The third formula describes the read operation
-![f3](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/f3.png?raw=true)  
+#### Why does the concept of computation graph exist?
+One of the question that inevitably comes to mind while going through computation graph is the reason for existence of such system.Why can't tensorflow do the computations directly on memory?
+Machine learning libraries like tensorflow are needed to do large numerical computations efficiently.These computations are not optimised in python and need to be carried out in a well optimised language outside python.Thus, there can be a lot of overhead from switching back to Python after every computation. This overhead is especially bad if you want to run computations on GPUs or in a distributed manner, where there can be a high cost to transferring data.
+TensorFlow also does its heavy lifting outside Python, but it takes things a step further to avoid this overhead. Instead of running a single expensive operation independently from Python, TensorFlow lets us describe a graph of interacting operations that run entirely outside Python. This approach is similar to that used in Theano or Torch.
 
-The above formula represents the read vector.While reading from our stack,we set a fixed initial read quantity of 1.A temporary copy of strength vector is made.Similar to pop operation,the copy of strength vector is traversed from highest index to lowest.If the next scalar is less than the read value then its value is preserved and is subtracted from the read quantity.If the next scalar is more than read value then its value is made equal to remaining read quantity and rest all scalars are set to zero.This resulting copy of strength values is then multiplied with corresponding vectors in value matrix and by adding these product values read vector is generated.
-Have a look at figure below to make things clearer:
-![read](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/Neural-Stacks/images/read.png?raw=true)
+#### Tensorflow Variables
+The tensors that we have dealt with till now were constants.Tensorflow also has the concept of Variables.
+Any machine learning problem will inevitably involve some parameters that would need to be updated in order to optimize a function.These updatable parameters will be expressed in form of tensorflow variables.
+One basic difference between constant tensors and variable tensors is that the variable tensors need to be initialized explicitly unlike constant tensors.Have a look at the implementation below:
 
-Implementing this in python we get:
+    #import tensorflow
+    import tensorflow as tf
+    #add a constant tensor to our graph
+	W1=tf.ones((2,2))
+	#add a variable to our graph
+	W2=tf.Variable(tf.zeros((2,2)))
+	#make a session object
+	with tf.Session() as sess:
+		#run the constant op
+	    print(sess.run(W1))
+	    #initialize all variables in our graph
+	    sess.run(tf.global_variables_initializer())
+	    #run the variable op
+	    print(sess.run(W2))
+Output-
 
-    def read_time(time):
-    #returns read vector at time 'time'
-    #initial read value of 1
-    	read=1
-    	read_vector=np.zeros(input_size)
-    #duplicate of strenth vector to modify it at time of read operation
-    	temp_strength=copy.deepcopy(strength)
-    #traversing through strength vector from top
-    	for var in reversed(range(time+1)):
-            if temp_strength[var]<read:
-            	read-=temp_strength[var]
-            else:
-            	temp_strength[var]=read
-		unwanted=set(temp_strength.keys())-set(range(var,time+1))
-	    #setting rest to 0
-            	for keys in unwanted:
-                	temp_strength[keys]=0
-	        break
+    [[ 1.  1.]
+	 [ 1.  1.]]
+	[[ 0.  0.]
+	 [ 0.  0.]]
+The function `tf.global_variables_initializer()` explicitly initializes all the variables tensors.The absence of this function will lead to generation of error in presence of Variables.
 
-   	for var in Value.keys():
-            read_vector+=(temp_strength[var]*Value[var])
+#### Placeholders and Feed dictionaries
+Till now we have seen simple variable tensors and constant tensors in tensorflow.A class of operations called placeholder also exists to facilitate the input of data to the our computation graph.They act as dummy nodes that provide entry points for data to our graph.
+It is important to note that placeholder ops should be provided data at the time of execution of our computation graph.This task is accomplished with the help of feed dictionaries.Thus feed dictionaries act as an intermediate between our data and placeholder ops.On the other hand the placeholder ops transfer the data that they receive from feed dictionaries at the time of execution to our computation graph.To get the idea of syntax,have a look at the code below:
 
-        return read_vector
+    #import tensorflow
+    import tensorflow as tf
+    #add a placeholder to our graph
+    input1=tf.placeholder(tf.float32)
+    #add another placeholder to our graph
+    input2=tf.placeholder(tf.float32)
+    #add an addition op to our graph
+    output=tf.add(input1,input2)
+    #create a session object
+    with tf.Session() as sess:
+	    #run the output op by providing data to placeholders through feed dictionaries
+	    print(sess.run(output,feed_dict={input1:[3.],input2:[2.]}))
+Output-
 
-Checking our implementation:
-Below code is consistent with our read figure.Four vectors are pushed into our value matrix with the help of pushPop function.  
+    [ 5.]
+The above code is heavily commented and self explanatory.One of the noticable modification is inclusion of the argument `feed_dict` in the `run()` methos of our session object. Note that above code is just to give you a syntactical and logical feeling about placeholders and feed dictionaries.We will use this concept at scale when we implement linear regression model in tensorflow.To clarify further,the flow of data from `feed_dict` to placeholders can be graphically represented as:
+![place](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/getting-started-with-tensorflow/images/placeholder.png?raw=true)
 
+Now that we have some idea of how computations take place in tensorflow,it is now a good time to implement a real model in tensorflow and analyze its working hands-on.Let us implement simple linear regression in tensorflow and string together all that we have learnt in this post.
+
+### Linear Regression in tensorflow
+
+The problem of linear regression is arguably the simplest machine learning problem.Simply put,in a 2-dimensional context,given a set of points(data),we need to find a straight line that fits that data the best.We will implement this model by breaking it down in steps and using concepts that we have learnt so far in this post.
+
+First things first,we need a dataset to implement regression on.Let us generate some random data as-
+
+	#importing tensorflow
+	import tensorflow as tf
+	#importing numpy
     import numpy as np
-    import copy
-    Value={}
-    strength={}
-    input_size=4
-    value_1=np.zeros(input_size)
-    value_1[0]=1	#[1 0 0 0]
-    value_2=np.zeros(input_size)
-    value_2[1]=1	#[0 1 0 0]
-    value_3=np.zeros(input_size)
-    value_3[2]=1	#[0 0 1 0]
-    value_4=np.zeros(input_size)
-    value_4[3]=1	#[0 0 0 1]
+    #importing matplotlib for plots
+	import matplotlib.pyplot as plt
+	#x coordinate of data
+	X_data=np.arange(0,100,0.1)
+	#y coordinate of data
+	Y_data=X_data+20*np.sin(X_data/10)
+	#plotting the data
+	plt.scatter(X_data,Y_data)
+	plt.show()
+Above code is pretty straightforward.To generate data we add some sinosoidal noise to the y coordinate.This give us the following plot:
+![plot](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/getting-started-with-tensorflow/images/plot.png?raw=true)
 
-    def read_time(time):
-    #returns read vector at time 'time'
-    #initial read value of 1
-    	read=1
-    	read_vector=np.zeros(input_size)
-    #duplicate of strength vector to modify it at time of read operation
-    	temp_strength=copy.deepcopy(strength)
-    #traversing through strength vector from top
-    	for var in reversed(range(time+1)):
-            if temp_strength[var]<read:
-            	read-=temp_strength[var]
-            else:
-                temp_strength[var]=read
-                unwanted=set(temp_strength.keys())-set(range(var,time+1))
-	        for keys in unwanted:
-                    temp_strength[keys]=0
-                break
+Our task is to fit a best possible straight line through this dataset.
+Now that we have our input data,we need to process it so that we can transfer it to our model.We have 1000 data-points of both `X_data` and `Y_data`. Let us convert this data in form of 1000X1 tensors as-
+
+    #total data points
+    n_samples=1000
+    #X_data in form of 1000X1 tensor
+    X_data=np.reshape(X_data,(n_samples,1))
+    #Y_data in form of 1000X1 tensor
+    Y_data=np.reshape(Y_data,(n_samples,1))
+
+Now that we have our data processed,we need to declare placeholders which would act as entry point of data to our computation graph.Here we will not transfer all of our 1000 datapoints at once to our computation graph.Rather we will do this in batches of size 100.
+
+    #batch size
+    batch_size=100
+    #placeholder for X_data
+    X=tf.placeholder(tf.float32,shape=(batch_size,1))
+    #placeholder for Y_data
+    Y=tf.placeholder(tf.float32,shape=(batch_size,1))
+
+We have our placeholders ready.As we want to fit our data in a straight line,we need to dwell upon the variables that would be learnt in order to accomplish this task.We need to create a weight variable and a bias variable to generate predictions from our input data X.These predictions will be modified by updating weight and bias variables.Our aim would be to get our predictions as close as possible to `Y`.This effect would be captured by minimizing our root mean square error loss function.
+
+    #defining weight variable
+    W=tf.Variable(tf.random_normal((1,1)),name="weights")
+    #defining bias variable
+    b=tf.Variable(tf.random_normal((1,)),name="bias")
+    #generating predictions
+    y_pred=tf.matmul(X,W)+b
+    #RMSE loss function
+    loss=tf.reduce_sum(((Y-y_pred)**2)/n_samples)
+
+To get the minimum value of this loss function we need to vary the values of weights and bias.This minimization is achieved using gradient-descent(refer [here](https://jasdeep06.github.io/posts/towards-backpropagation/)) which is implemented directly in tensorflow as follows:
+
+    #defining optimizer
+    opt_operation=tf.trainAdamOptimizer().minimize(loss)
+    #creating a session object
+    with tf.Session() as sess:
+	    #initializing the variables
+	    sess.run(tf.global_variables_initializer())
+	    #gradient descent loop for 500 steps
+	    for iteration in range(500):
+		    #selecting batches randomly
+		    indices=np.random.choice(n_samples,batch_size)
+		    X_batch,Y_batch=X_data[indices],Y_data[indices]
+		    #running gradient descent step
+		    _,loss_value=sess.run([opt_operation,loss],feed_dict={X:X_batch,y:Y_batch})
+
+Above we define a optimization operation using the `tf.trainAdamOptimizer()`function which is a modified form of gradient descent algorithm.We also randomly select the batches of input data of batch size 100 and run our optimization operation.The `for` loop running 500 times during the training can be seen as 500 iterations in the gradient descent algorithm.After each iteration the values of weights and bias are updated.Each iteration randomly selects 100(`batch_size`) data points from the set of 1000(`n_samples`) and feeds it to the placeholders using feed dictionaries.
+When we plot the straight line generated along with our initial dataset we see the following:
+
+![graph2](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/getting-started-with-tensorflow/images/graph2.png?raw=true)
+Thus we can see that we have obtained a pretty good linear fit to our curve.For the sake of completeness here is the full code:
+
+    import tensorflow as tf
+	import numpy as np
+	import matplotlib.pyplot as plt
+	#generating data
+	X_data=np.arange(0,100,0.1)
+	Y_data=X_data+20*np.sin(X_data/10)
+	#plotting the data
+	plt.scatter(X_data,Y_data)
+	#Uncomment below to see the plot of input data. 
+	#plt.show()
+	n_samples=1000
+	X_data=np.reshape(X_data,(n_samples,1))
+	Y_data=np.reshape(Y_data,(n_samples,1))
+	#batch size
+	batch_size=100
+	#placeholder for X_data
+	X=tf.placeholder(tf.float32,shape=(batch_size,1))
+	#placeholder for Y_data
+	Y=tf.placeholder(tf.float32,shape=(batch_size,1))
+	#placeholder for checking the validity of our model after training
+	X_check=tf.placeholder(tf.float32,shape=(n_samples,1))
+
+	#defining weight variable
+	W=tf.Variable(tf.random_normal((1,1)),name="weights")
+	#defining bias variable
+	b=tf.Variable(tf.random_normal((1,)),name="bias")
+	#generating predictions
+	y_pred=tf.matmul(X,W)+b
+	#RMSE loss function
+	loss=tf.reduce_sum(((Y-y_pred)**2)/batch_size)
+	#defining optimizer
+	opt_operation=tf.train.AdamOptimizer(.0001).minimize(loss)
+	#creating a session object
+	with tf.Session() as sess:
+	    #initializing the variables
+	    sess.run(tf.global_variables_initializer())
+	    #gradient descent loop for 500 steps
+	    for iteration in range(5000):
+	        #selecting batches randomly
+	        indices=np.random.choice(n_samples,batch_size)
+	        X_batch,Y_batch=X_data[indices],Y_data[indices]
+	        #running gradient descent step
+	        _,loss_value=sess.run([opt_operation,loss],feed_dict={X:X_batch,Y:Y_batch})
     
-        for var in Value.keys():
-            read_vector+=(temp_strength[var]*Value[var])
-        return read_vector
+	    #plotting the predictions
+	    y_check=tf.matmul(X_check,W)+b
+	    pred=sess.run(y_check,feed_dict={X_check:X_data})
+	    plt.scatter(X_data,pred)
+	    plt.scatter(X_data,Y_data)
+	    plt.show()
 
-    def strength_time(time,push_certainity,pop_certainity):
-	for var in reversed(range(time)):
-            if strength[var]<pop_certainity:
-	        pop_certainity-=strength[var]
-                strength[var] = 0
-            else:
-                strength[var]-=pop_certainity
-                pop_certainity = 0
-                break
-	strength[time] = push_certainity
-	
-     def pushPop(push_value,push_certainity,pop_certainity,time):
-        strength_time(time,push_certainity,pop_certainity)
-    	Value[time]=push_value
-    	return read_time(time)
+So this was our implementation of linear regression model in tensorflow.In the next post we will try to extend our knowledge of tensorflow by building a different model.It would be fun!Stay tuned!
+ 
 
-    pushPop(value_1,0.5,0,0)
-    pushPop(value_2,0.6,0,1)
-    pushPop(value_3,0.3,0,2)
-    print(pushPop(value_4,0.4,0,3))#prints [0 .3 .3 .4]
-
-Above program outputs [0 .3 .3 .4] which is consistent with 0.4*v4+0.3*v3+0.3*v2+0*v1.
-
-In the next post we will look to implement backpropagation through our neural stack.
-
-
+ 
 
