@@ -1,293 +1,164 @@
-# Getting started with Tensorflow
-It has been almost a year since Tensorflow was released by Google.Although there are a lot of deep learning libraries available(like Theano etc.) but Tensorflow is pretty big!One of the prominent reason is being backed by the big fish,Google! Also tensorflow has pretty great support for distributed systems.Considering the open-source popularity of tensorflow and recent advancements in neural network research,this library is here to stay. 
-
-In this post we will not only introduce tensorflow but also take a under-the-hood trip to its working.We will start off by going through basics of using tensorflow and analyze "computational graphs" that form the basis of tensorflow's working.Later we will build a linear regression model that would further clarify its working.
+# Variable sharing in Tensorflow
+In [previous](https://jasdeep06.github.io/posts/getting-started-with-tensorflow/) post we got familiar with tensorflow and dived into its under the hood working.In this post we will discuss an important concept that will be particularly useful when we create large models in tensorflow.This post will be based on the concept of variable namespaces and variable sharing in tensorflow.
 
 #### Lets get started!!!
+As we have already learnt declaring a variable in tensorflow computation graph is pretty straightforward-
+	
+	var=tf.Variable(tf.random_normal([2,3]),name="variable1")
 
-When we come across the name "Tensorflow",the first thing that invariably comes to mind is the word "tensor".Why "tensor"flow?What is a "tensor"?Well,not dwelling too much on its mathematical representation,consider tensor as a multidimensional array of numbers.Thus all scalars,vectors,matrices fall under the category of tensors.
-Let us try to add two tensors in tensorflow-
+This method of adding variables(using `tf.Variable()` ) to the computation graph is pretty handy but as our graph becomes more complicated and large(both in terms of layers in our graph and number of variables) we would want some hierarchy or organization amongst the variable names to avoid name-clashes.Also many times while implementing complex models we might want to share our variables between layers of your computation graph.One example that comes off the top of my head is Recurrent neural networks.While implementing RNNs we would want to share the weight variable between layers of your computation graph(or network).Tensorflow provides a really lightweight and safe way of sharing variables and organizing variable names by implementing the concept of namespaces or variable scopes.To organize and share variables in tensorflow we have three basic concepts:
 
-    #import tensorflow
-    import tensorflow as tf
-    #declare constants
-    a=tf.constant(2,name="a")
-    b=tf.constant(3,name"b")
-    c=tf.add(a,b,name="c")
+ - The method  `tf.variable_scope()` which provides simple name-spacing to avoid clashes.
+ - A `reuse` flag which is property of scope that tells the tensorflow environment  if we want the variables within that scope to be reused or not.
+ - The method `tf.getVariable()` that creates/accesses variables from within a variable scope.
+`tf.get_variable` is usually called as-
 
+		v = tf.get_variable(name, shape, dtype, initializer)
 
-In above program the function `tf.constant(value)` is used to declare a constant of value `value`  and `tf.add(a,b)` is used to add two tensors `a` and `b`. Let us now try to print the value of `c`:
+Rather than going into these concepts one by one,discussing them simultaneously would be more effective as they are very closely related to each other.
 
+#### Variable Organization in Tensorflow 
 
-
-    #import tensorflow
-    import tensorflow as tf
-    #declare constants
-    a=tf.constant(2,name="a")
-    b=tf.constant(3,name="b")
-    c=tf.add(a,b,name="c")
-    print(c)
-
-
-Output-
-
-	Tensor("Add:0", shape=(), dtype=int32)
-
-
-Instead of a scalar tensor valued 5,the above program prints a weird tensor object.Why does this happen?Well,at first it might seem that the operations that we do in tensorflow are direct operations on multidimensional arrays but the truth is drastically different.This difference is actually the essence of tensorflow!
-When we do computations in tensorflow,instead of running them directly,tensorflow constructs a "computation graph".
-
-#### Computation Graph
-Computation graph in tensorflow can be considered as network of nodes,with each node representing an operation.From generation of constant tensors to mathematical operations on them,all are represented in form of nodes and are referred to as ops.For our example of adding two constant tensors the computational graph can be visualized as:
-![graph](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/getting-started-with-tensorflow/images/graph.png?raw=true)
-One of the important aspect of computation graph is that it does not has any numerical value until it is explicitly evaluated or run.Thus when we printed the value of `c` above it returned a tensor object rather than returning the numerical value of added tensors.
-
-So the next logical question is "**how do we run this computation graph?**".
-
-In order to run a computation graph in tensorflow,a context is required.This context is encapsulated by a **Session** object.To clarify this concept,have a look at the code below:
-
-
+First let us see how variables are organized in tensorflow when we declare them inside a scope using the method `tf.getVariable()`.(Yes,`tf.getVariable()` can not only access existing variables but can also create new variables.We will look into its details soon.For now just remember that  it can create as well as access variables.)
 
     #import tensorflow
-    import tensorflow as tf
-    #declare constants
-    a=tf.constant(2,name="a")
-    b=tf.constant(3,name="b")
-    c=tf.add(a,b,name="c")
-    #create a session
-    with tf.Session() as sess:
-	    #running the computation in session
-	    print(sess.run(c))
-
-
-Output-
-
-
-    5
-
-
-A Session object is created by the method `tf.Session()`.The computation `c` in our computation graph would run in this session by calling the `sess.run(c)` method.The addition computation runs in our Session `sess` and yields a value of `5`.
-To avoid of passing the computation from the run method of our session object,tensorflow has concept of **Interactive Session**.Once an InteractiveSession object is created,a computation can be evaluated by calling the `eval()` method on it(instead of previously passing the computation from `run` method of Session object).This comes in handy when dealing with Ipython notebooks and other interactive environments.Have a look at the implementation below:
-
-    #import tensorflow
-    import tensorflow as tf
-    #declare constants
-    a=tf.constant(2,name="a")
-    b=tf.constant(3,name="b")
-    c=tf.add(a,b,name="c")
-    #create an Interactive session
-    sess=tf.InteractiveSession()
-    #just call eval() on the computation to be evaluated.
-	print(c.eval())
-
-
-Output-
-
-    5
-
-
-#### Why does the concept of computation graph exist?
-One of the question that inevitably comes to mind while going through computation graph is the reason for existence of such system.Why can't tensorflow do the computations directly on memory?
-Machine learning libraries like tensorflow are needed to do large numerical computations efficiently.These computations are not optimised in python and need to be carried out in a well optimised language outside python.Thus, there can be a lot of overhead from switching back to Python after every computation. This overhead is especially bad if you want to run computations on GPUs or in a distributed manner, where there can be a high cost to transferring data.
-TensorFlow also does its heavy lifting outside Python, but it takes things a step further to avoid this overhead. Instead of running a single expensive operation independently from Python, TensorFlow lets us describe a graph of interacting operations that run entirely outside Python. This approach is similar to that used in Theano or Torch.
-
-#### Tensorflow Variables
-The tensors that we have dealt with till now were constants.Tensorflow also has the concept of Variables.
-Any machine learning problem will inevitably involve some parameters that would need to be updated in order to optimize a function.These updatable parameters will be expressed in form of tensorflow variables.
-One basic difference between constant tensors and variable tensors is that the variable tensors need to be initialized explicitly unlike constant tensors.Have a look at the implementation below:
-
-    #import tensorflow
-    import tensorflow as tf
-    #add a constant tensor to our graph
-	W1=tf.ones((2,2))
-	#add a variable to our graph
-	W2=tf.Variable(tf.zeros((2,2)))
-	#make a session object
-	with tf.Session() as sess:
-		#run the constant op
-	    print(sess.run(W1))
-	    #initialize all variables in our graph
-	    sess.run(tf.global_variables_initializer())
-	    #run the variable op
-	    print(sess.run(W2))
-
-
-Output-
-
-    [[ 1.  1.]
-	 [ 1.  1.]]
-	[[ 0.  0.]
-	 [ 0.  0.]]
-
-
-The function `tf.global_variables_initializer()` explicitly initializes all the variables tensors.The absence of this function will lead to generation of error in presence of Variables.
-
-#### Placeholders and Feed dictionaries
-Till now we have seen simple variable tensors and constant tensors in tensorflow.A class of operations called placeholder also exists to facilitate the input of data to the our computation graph.They act as dummy nodes that provide entry points for data to our graph.
-It is important to note that placeholder ops should be provided data at the time of execution of our computation graph.This task is accomplished with the help of feed dictionaries.Thus feed dictionaries act as an intermediate between our data and placeholder ops.On the other hand the placeholder ops transfer the data that they receive from feed dictionaries at the time of execution to our computation graph.To get the idea of syntax,have a look at the code below:
-
-    #import tensorflow
-    import tensorflow as tf
-    #add a placeholder to our graph
-    input1=tf.placeholder(tf.float32)
-    #add another placeholder to our graph
-    input2=tf.placeholder(tf.float32)
-    #add an addition op to our graph
-    output=tf.add(input1,input2)
-    #create a session object
-    with tf.Session() as sess:
-	    #run the output op by providing data to placeholders through feed dictionaries
-	    print(sess.run(output,feed_dict={input1:[3.],input2:[2.]}))
-
-
-Output-
-
-    [ 5.]
-
-
-The above code is heavily commented and self explanatory.One of the noticable modification is inclusion of the argument `feed_dict` in the `run()` methos of our session object. Note that above code is just to give you a syntactical and logical feeling about placeholders and feed dictionaries.We will use this concept at scale when we implement linear regression model in tensorflow.To clarify further,the flow of data from `feed_dict` to placeholders can be graphically represented as:
-![place](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/getting-started-with-tensorflow/images/placeholder.png?raw=true)
-
-Now that we have some idea of how computations take place in tensorflow,it is now a good time to implement a real model in tensorflow and analyze its working hands-on.Let us implement simple linear regression in tensorflow and string together all that we have learnt in this post.
-
-### Linear Regression in tensorflow
-
-The problem of linear regression is arguably the simplest machine learning problem.Simply put,in a 2-dimensional context,given a set of points(data),we need to find a straight line that fits that data the best.We will implement this model by breaking it down in steps and using concepts that we have learnt so far in this post.
-
-First things first,we need a dataset to implement regression on.Let us generate some random data as-
-
-	#importing tensorflow
 	import tensorflow as tf
-	#importing numpy
-    import numpy as np
-    #importing matplotlib for plots
-	import matplotlib.pyplot as plt
-	#x coordinate of data
-	X_data=np.arange(0,100,0.1)
-	#y coordinate of data
-	Y_data=X_data+20*np.sin(X_data/10)
-	#plotting the data
-	plt.scatter(X_data,Y_data)
-	plt.show()
+	#open a variable scope named 'scope1'
+	with tf.variable_scope("scope1"):
+	    #add a new variable to the graph
+	    var=tf.get_variable("variable1",[1])
+	#print the name of variable
+	print(var.name)
+	
+Output:
+
+    scope1/variable1:0
+
+In above program we created a variable named `variable1` inside a scope named `scope`.The program outputs the variable name as `scope1/variable1:0`.Thus variable naming in tensorflow inside a variable scope follows a structure analogous to the directory structure i.e. `the scope in which variable is named+name of the variable`.
+We can also have nested scopes.Again the naming will be analogous to the directory structure:
+
+    #import tensorflow
+	import tensorflow as tf
+	#open a variable scope named 'scope1'
+	with tf.variable_scope("scope1"):
+		#open a nested scope name 'scope2'
+	    with tf.variable_scope("scope2"):
+	        #add a new variable to the graph
+		    var=tf.get_variable("variable1",[1])
+	#print the name of variable
+	print(var.name)
 
 
-Above code is pretty straightforward.To generate data we add some sinosoidal noise to the y coordinate.This give us the following plot:
-![plot](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/getting-started-with-tensorflow/images/plot.png?raw=true)
+Output:
 
-Our task is to fit a best possible straight line through this dataset.
-Now that we have our input data,we need to process it so that we can transfer it to our model.We have 1000 data-points of both `X_data` and `Y_data`. Let us convert this data in form of 1000X1 tensors as-
+    scope1/scope2/variable1:0
 
 
-    #total data points
-    n_samples=1000
-    #X_data in form of 1000X1 tensor
-    X_data=np.reshape(X_data,(n_samples,1))
-    #Y_data in form of 1000X1 tensor
-    Y_data=np.reshape(Y_data,(n_samples,1))
+ I know the implementation of these new methods might seem a bit blurry and unclear.Don't worry!We will get into all the details soon.The only thing I want you to take away from above examples is the fact that variable naming inside a scope is analogous to directory structure.Thats all!
+
+#### Getting into variable sharing
+
+When we use the word "sharing" for a variable then we are automatically talking about reusing it at multiple places.If we want to share the weight variable between layers of our Recurrent neural network then we can easily say that we are reusing the same weight variable for different layers.Thus the concept of "sharing" is very much congruent to "reusing".
+The `reuse` flag helps us here.It is property of a scope and has a default value of `False` meaning that we cannot reuse variables within that scope.Let us have a look at the code below to have an idea of what we mean by "reusing" a variable and consequence of trying to reuse variables in default case:
+
+    #import tensorflow
+	import tensorflow as tf
+	#open a variable scope named 'scope1'
+	with tf.variable_scope("scope1"):
+		#declare a variable named variable1
+		var1 = tf.get_variable("variable1",[1])
+		#declare another variable with same name
+	    var2=tf.get_variable("variable1",[1])
+
+In above program we wanted to declare two variables with same tensorflow names(variable1) i.e. we wanted two python variables `var1` and `var2` to share the same tensorflow variable `variable1`.(Note that this is just a handy trick to visualize the significance of tensorflow names of variables.In reality when we declare a variable `var1` in python and name it `variable1` in tensorflow they both corrospond to same variable known as `var1` in python environment and `scope1/variable1`(in this case) in tensorflow environment.)The above program will generate a Value Error as  `scope1/variable1` was already declared when we declared `var1` and the value of `reuse` flag was `False` in default case.
+Now let us explicitly set the value of the `reuse` flag to be `True`.We can do this in two ways.We can either set the `reuse` flag to `True` when we open a scope or we can call the method `tf.get_variable_scope().reuse_variables()` anywhere inside the scope to set the flag to `True`.
+
+    #import tensorflow
+	import tensorflow as tf
+	#open a variable scope named 'scope1'
+	with tf.variable_scope("scope1"):
+		#declare a variable named variable1
+		var1 = tf.get_variable("variable1",[1])
+		#set reuse flag to True
+		tf.get_variable_scope().reuse_variables()
+		#just an assertion!
+		assert tf.get_variable_scope().reuse==True
+		#declare another variable with same name
+	    var2=tf.get_variable("variable1",[1])
+	
+	assert var1==var2
+
+The above program runs without any error.The last assertion(`assert var1==var2`) essentially captures the essence of the term "reusing" variable as `var1` and `var2` correspond to same variable which is known by the name "scope1/variable1" in tensorflow environment.
+
+#### `reuse` flag and `tf.get_variable()`
+
+We have already seen that the method `tf.get_variable()` can create new variables as well as access the existing ones. The `reuse` flag determines the behaviour of the function `tf.get_variable()`.There can be two possibilities:
+
+ - The `reuse` flag is set to `False`:
+ If the `reuse` flag is `False` then `tf.get_variable` will first check if a variable with the name equivalent to current scope name `+` the provided name (analogous to directory structure) exists.If it exists then it generates a Value Error otherwise it creates the new variable.		
+		
+		#import tensorflow
+		import tensorflow as tf
+		#open a variable scope named 'scope1'
+		with tf.variable_scope("scope1"):
+			#declare a variable named variable1
+			var1 = tf.get_variable("variable1",[1])
+			#declare another variable with same name
+		    var2=tf.get_variable("variable1",[1])
+
+The above program generates a Value Error.
+
+ - The `reuse` flag is set to `True`
+ If the `reuse` flag is set to true within a scope then `tf.get_variable()` will look for the variable with the name equivalent to current scope name `+` the provided name (analogous to directory structure).If it exists then it will return that existing variable otherwise it throws a Value Error.
+
+	    #import tensorflow
+		import tensorflow as tf
+		#open a variable scope named 'scope1'
+		with tf.variable_scope("scope1"):
+			#declare a variable named variable1
+			var1 = tf.get_variable("variable1",[1])
+			#set reuse flag to True
+			tf.get_variable_scope().reuse_variables()
+			#just an assertion!
+			assert tf.get_variable_scope().reuse==True
+			#declare another variable with same name
+		    var2=tf.get_variable("variable1",[1])
+	
+In the above program when we declare the variable `var1`, the `reuse` flag was with its default value of `False` and so the method `tf.get_variable()` searched for variable named `scope1/variable1`.As it did not exist,it created a new variable.After setting `reuse` to true when we called `tf.get_variable()` again to declare variable `var2` with same tensorflow name `scope1/variable1` it again searched for a variable named `scope1/variable1` and this time found it thus returning and storing it in `var2`.
+
+#### Name scopes in Tensorflow
+We saw that `tf.variable_scope` affects the variable names declared in that scope.But sometimes in large computation graphs we would like to organize the names of our operations too.This feature is added by name scopes in tensorflow.We can open a name scope by `tf.name_scope`.Note that name scopes do not affect the names of variables while the variable scope does not affects the name of operations.A combined usage of name scope and variable scope is shown:
+
+    #import tensorflow
+	import tensorflow as tf
+	#open a variable scope named 'variable_scope1'
+	with tf.variable_scope("variable_scope1"):
+			#open a name scope named 'name_scope1'
+			with tf.name_scope("name_scope1"):
+				#declare a variable named variable1
+				var1 = tf.get_variable("variable1",[1])
+				#declare an operation 
+				var2=1.0+var1
+				
+	print(var1.name)
+	print(var2.name)
+
+Output:
+
+    variable_scope1/variable1:0
+	variable_scope1/name_scope1/add:0
+
+From output it is clear that variable scope only affects variable name and name scope only affects operation name.
 
 
-Now that we have our data processed,we need to declare placeholders which would act as entry point of data to our computation graph.Here we will not transfer all of our 1000 datapoints at once to our computation graph.Rather we will do this in batches of size 100.
 
 
-    #batch size
-    batch_size=100
-    #placeholder for X_data
-    X=tf.placeholder(tf.float32,shape=(batch_size,1))
-    #placeholder for Y_data
-    Y=tf.placeholder(tf.float32,shape=(batch_size,1))
-    
+Although we have not explored  a practical example where namespaces and variable sharing are used but I hope this post helped you understand the concept of variable sharing in tensorflow.We will implement this concept when we will implement complex models like RNNs in tensorflow in future blogposts.  
+		    
 
-We have our placeholders ready.As we want to fit our data in a straight line,we need to dwell upon the variables that would be learnt in order to accomplish this task.We need to create a weight variable and a bias variable to generate predictions from our input data X.These predictions will be modified by updating weight and bias variables.Our aim would be to get our predictions as close as possible to `Y`.This effect would be captured by minimizing our root mean square error loss function.
-
-
-    #defining weight variable
-    W=tf.Variable(tf.random_normal((1,1)),name="weights")
-    #defining bias variable
-    b=tf.Variable(tf.random_normal((1,)),name="bias")
-    #generating predictions
-    y_pred=tf.matmul(X,W)+b
-    #RMSE loss function
-    loss=tf.reduce_sum(((Y-y_pred)**2)/n_samples)
-
-To get the minimum value of this loss function we need to vary the values of weights and bias.This minimization is achieved using gradient-descent(refer [here](https://jasdeep06.github.io/posts/towards-backpropagation/)) which is implemented directly in tensorflow as follows:
-
-
-    #defining optimizer
-    opt_operation=tf.trainAdamOptimizer().minimize(loss)
-    #creating a session object
-    with tf.Session() as sess:
-	    #initializing the variables
-	    sess.run(tf.global_variables_initializer())
-	    #gradient descent loop for 500 steps
-	    for iteration in range(500):
-		    #selecting batches randomly
-		    indices=np.random.choice(n_samples,batch_size)
-		    X_batch,Y_batch=X_data[indices],Y_data[indices]
-		    #running gradient descent step
-		    _,loss_value=sess.run([opt_operation,loss],feed_dict={X:X_batch,y:Y_batch})
-
-Above we define a optimization operation using the `tf.trainAdamOptimizer()`function which is a modified form of gradient descent algorithm.We also randomly select the batches of input data of batch size 100 and run our optimization operation.The `for` loop running 500 times during the training can be seen as 500 iterations in the gradient descent algorithm.After each iteration the values of weights and bias are updated.Each iteration randomly selects 100(`batch_size`) data points from the set of 1000(`n_samples`) and feeds it to the placeholders using feed dictionaries.
-When we plot the straight line generated along with our initial dataset we see the following:
-
-![graph2](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/getting-started-with-tensorflow/images/graph2.png?raw=true)
-Thus we can see that we have obtained a pretty good linear fit to our curve.For the sake of completeness here is the full code:
+	
 
 
 
-    import tensorflow as tf
-	import numpy as np
-	import matplotlib.pyplot as plt
-	#generating data
-	X_data=np.arange(0,100,0.1)
-	Y_data=X_data+20*np.sin(X_data/10)
-	#plotting the data
-	plt.scatter(X_data,Y_data)
-	#Uncomment below to see the plot of input data. 
-	#plt.show()
-	n_samples=1000
-	X_data=np.reshape(X_data,(n_samples,1))
-	Y_data=np.reshape(Y_data,(n_samples,1))
-	#batch size
-	batch_size=100
-	#placeholder for X_data
-	X=tf.placeholder(tf.float32,shape=(batch_size,1))
-	#placeholder for Y_data
-	Y=tf.placeholder(tf.float32,shape=(batch_size,1))
-	#placeholder for checking the validity of our model after training
-	X_check=tf.placeholder(tf.float32,shape=(n_samples,1))
 
-	#defining weight variable
-	W=tf.Variable(tf.random_normal((1,1)),name="weights")
-	#defining bias variable
-	b=tf.Variable(tf.random_normal((1,)),name="bias")
-	#generating predictions
-	y_pred=tf.matmul(X,W)+b
-	#RMSE loss function
-	loss=tf.reduce_sum(((Y-y_pred)**2)/batch_size)
-	#defining optimizer
-	opt_operation=tf.train.AdamOptimizer(.0001).minimize(loss)
-	#creating a session object
-	with tf.Session() as sess:
-	    #initializing the variables
-	    sess.run(tf.global_variables_initializer())
-	    #gradient descent loop for 500 steps
-	    for iteration in range(5000):
-	        #selecting batches randomly
-	        indices=np.random.choice(n_samples,batch_size)
-	        X_batch,Y_batch=X_data[indices],Y_data[indices]
-	        #running gradient descent step
-	        _,loss_value=sess.run([opt_operation,loss],feed_dict={X:X_batch,Y:Y_batch})
-    
-	    #plotting the predictions
-	    y_check=tf.matmul(X_check,W)+b
-	    pred=sess.run(y_check,feed_dict={X_check:X_data})
-	    plt.scatter(X_data,pred)
-	    plt.scatter(X_data,Y_data)
-	    plt.show()
-
-
-So this was our implementation of linear regression model in tensorflow.In the next post we will try to extend our knowledge of tensorflow by building a different model.It would be fun!Stay tuned!
- 
-
- 
 
