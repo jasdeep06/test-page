@@ -1,124 +1,155 @@
-# Basics of Convolutional Neural Networks
-In previous [blogposts](https://jasdeep06.github.io/) we explored the basics of tensorflow.In this series of posts we will look into different types of neural networks and their implementation in Tensorflow.In this post we will look into
-the gory details of convolutional neural networks(CNNs) from motivation to reasoning their effectiveness.
-As we will mostly deal with applying CNNs on images,we will start by looking into digital representation of images and how filters work on an image.We will also look into some theoretical aspects of CNNs which would help us to implement them in coming posts.
+# CNNs in Tensorflow (cifar-10 implementation)(1/3)
 
-#### Lets get started!!!
+Its been quite a while since I last posted as I was busy with exams at the college.Now that the carnage is over,you can expect posts in quick succession throughout the month.
 
-### Digital representation of images
+In the [previous](https://jasdeep06.github.io/posts/basics-of-cnns/) post we discussed the cogs on which the system of Convolutional neural network(CNN) works.In this post we will implement a CNN in Tensorflow on the cifar-10 dataset.
 
-We all have(hopefully!) drawn pictures on canvas or a sheet of paper at some point in our lives.We would use different colours to accomplish this task.The concept of colour,to most of us,feels pretty abstract.Therefore the representation of images on a screen rather than a piece of paper needed us to express this abstraction in form of a concept.Thus the concept of "pixel" was motivated.
+As this is the first real implementation of this blog,I will discuss cifar-10 model in great detail(input-pipeline,training,evaluation etc.) and we will use these details in implementing other models as basic structure of models generally remains the same.
 
-Images are digitally represented in form of "pixels".These are the building blocks of digital images.You can visualize pixels as tiny rectangles of lights that impart properties to an image.
+In this post we will discuss the representation of tensors and reshaping and slicing operations on them.We will also try to visualise cifar-10 dataset.
 
-![pixel](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/pixel.jpg/?raw=true)
-*Visualizing pixels*
+#### Lets get started!!!!
 
-To further clarify this representation,let us look at concept of resolution.When we state that an image has resolution (2048X1536) we necessarily mean that it has 2048 pixels in width and 1536 pixels in height and thus has total of 2048X1536=3,145,728 pixels or 3.1 megapixels.
-So a 2X2 image will be made up of 4 pixels which can be visualized as:
-
-![2x2](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/2x2.png?raw=true) 
-*A 2x2 image representation*
-
-The content of these pixels depend upon the kind of image that we are dealing with.Here we will talk about the most common type of image i.e. RGB image.RGB stands for Red,Green and Blue that constitute the primary colours.
-
-In a RGB image,each pixel consists of three channels one each for red,green and blue.Our aim is to use these three colours(channels) in different amounts to generate rest of the colours which would in turn generate the image.To control the colour amount,we divide each channel into something called *bit depth*.Usually the value of *bit-depth* is 8.Each of these 8 bit consists value of 1 or 0 and thus the value of channel can range from 0 to 2<sup>8</sup>-1 i.e. from 0 to 255.The combination of values from 0 to 255 of these three channels gives the value of a pixel and thus imparts it the resulting colour.For example,the combination (64,224,208) gives the colour Turquoise:
-
-![pixel_chart](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/pixel_graph.png?raw=true)
-
-Thus any RGB image of resolution AXB can be represented in 3 dimensions in form of AXBX3 where 3 is the number of channels(Red,Green and blue).Below is representation of a 200X200 RGB image splitted in three channels:
-![cat_split](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/cat_split.png?raw=true)
-
-Now that we know basic representation of an image in form of pixels we can move forward to motivate the idea of Convolutional Neural Networks.
-
-### Motivating CNNs
-
-Imagine we are given a set of images and their corresponding labels and are asked to come up with a image classification system.What could be the possible approaches?
-
- - One of the straightforward approach can be to come up with a vanilla feed forward network with all the pixels of our image as inputs.In theory this should work wonders as we would have all the information we need to correctly classify the images.But this approach is pretty naive and does not scale well for images with standard resolutions.Lets take an example to understand the problem.Say our input images have resolution 1280X720(which is really a lesser assumption considering todays cameras!).Thus our input images have around 1 million pixels and same will be number of input nodes of our neural network.If we assume that our hidden layer has 10,000 nodes(resonable assumption),the size of our weight matrix will shoot up to 1 millionX10,000 trainable elements!!This is just the first hidden layer!This is pure crazy!!!Thus for even lesser resolution images using a vanilla neural network is computationally too expensive.
- 
- - Another approach which can eliminate the problem of expensive computations is if somehow we are able to decrease number of pixels from input image.If somehow we are able to eliminate the noisy pixels from our image and keep only those that are essential for image recognition.We are talking about manual feature selection.Although manual feature selection may prove to be handy in designing of systems such as anomaly detection but while dealing with images it does not help much.You would not know how a network distinguishes between an image of your and your friend's face.
- 
- Thus we can now say that we need a network arrangement that limits the number of parameters and also learns the necessary features by itself.Enter CNNs
-
-### Convolutional neural network
-
-#### Working of a filter
-
-The basic structure of a CNN is a little different from vanilla feed forward neural network.Instead of consecutive layers being fully connected,we introduce the concept of "filters".When we talk about "filtering" in image processing we are talking about emphasizing or removing certain features.A filter can be visualized as multidimensional matrix of weights.These weights are usually governed by some pattern or principle suitably selected to emphasize or remove features.Filters are usually smaller than our image and are convoluted all over the image.During these convolutions, pixels of our image are modified so as to yield desired modifications in image.Let us make things more clearer with help of an example:
-
-Imagine you are given a 5X5 image and a 3X3 gaussian filter(A filter whose weights are sampled from a gaussian distribution) and you want to apply the filter on the given image.Here "applying filter" is nothing but convolving filter all over the image.
-![filter](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/filter.png?raw=true)
-
-Above figure shows how filter is used to modify pixels of our image.Imagine the filter being placed over our image in such a way that the like coloured numbers in our filter and image coincide.This would mean that (50,green) of our image would coincide with (4,green) of the filter.An operation of weighted mean is carried out as shown in figure.The central pixel(50,green) is modified with the obtained mean value(62).Similarly this operation is carried out by moving the filter such that every pixel of our image gets to be the central pixel(for now neglect the edges when filter would overshoot our image).
-
-How does the filter affects our image?
-Different filters have different effect on the image.The gaussian filter is used as preprocessing step in image processing and is responsible for smoothing and removing noise.It leaves a blurring effect.Filters like sobel are used to highlight edges.Thus depending upon their weights,different filters emphasize/remove different features.
+## Operating on tensors in Tensorflow
 
 
-![blur](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/blur.png?raw=true)
+If you understand the concepts of multidimensional array,reshaping and slicing operations in tensorflow you can skip this section.
+Before taking a look at reshaping and slicing operations in tensorflow,it would be great if we become comfortable with the representation of multidimensional arrays(or tensors).This would let us visualise dimensional information associated with each element of tensors which is essential to master the slicing operations.In all the discussions we will be using zero based indexing as is the case in python.
+
+To understand shapes and dimensions of a tensor,we will use the method `tf.Tensor.get_shape()` which returns the shape of tensor in form of tuple of tensor dimensions.For example,an output of (2,1,4) would mean that the tensor has 3 dimensions(length of the tuple) and the zeroth dimension has 2 elements,first has 1 element and the second dimension has 4 elements.One of the tensor which satisfies this output can be given by-	
+		
+		T=[[[11,12,13,14]],[[15,16,17,18]]]
+
+Now let us dissect above tensor representation to reach the conclusion about its shape.'Dimensions' in above notation is depicted by the square brackets.Encountering an opening bracket would mean going to the next higher dimension and encountering a closing brace would mean going down to immediate lower dimension.The 'comma' is used to separate elements of same dimension.
+
+Let us traverse the above tensor from left to right.As we encounter three  consecutive opening brackets,we reach the second dimension which contains four elements 11,12,13 and 14.As we move further right,we encounter two closing braces which takes us back to zeroth dimension.Thus `[[11 12 13 14]]` was the zeroth element in our zeroth dimension.Similarly first element in the zeroth dimension would be `[[15 16 17 18]]`.
+Let us try to visualise the allotment of indices to these tensor elements:
+![tensor_visual](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/cnn-in-tensorflow/images/tensor_vis.png?raw=true)
+Above figure is pretty self-explanatory.To get comfortable with indices let us write some code to access elements of above tensor `T`.While you analyse the output of code,compare them with above figure to make yourself see how elements of tensors are accessed.
+	
+	import tensorflow as tf
+	T=tf.constant([[[11,12,13,14]],[[15,16,17,18]]])
+	#start a interactive session
+	sess=tf.InteractiveSession()
+	print("Our tensor is",T.eval())
+	print("Shape of the tensor is ",T.get_shape())
+	print("T[0] is ",T[0].eval())   #equivalent to T[0,:,:]
+	print("T[1,0] is",T[1,0].eval())    #equivalent to T[1,0,:]
+	print("T[1,0,0] is ",T[1,0,0].eval())
+	print("T[1,0,:] is",T[1,0,:].eval())
+	
+	
+Output:
+
+	Our tensor is [[[11 12 13 14]]
+					[[15 16 17 18]]]
+	Shape of the tensor is  (2, 1, 4)
+	T[0] is  [[11 12 13 14]]
+	T[1,0] is [15 16 17 18]
+	T[1,0,0] is  15
+	T[0,0,:] is [11 12 13 14]
+	
+By comparing the output of program with the figure above,we are able to visualise the arrangement of tensor elements which will be very helpful in reshaping and slicing operations.
+
+### Reshaping in tensorflow
+
+Reshaping operations in tensorflow are carried out by reshape function defined as-
+
+	tf.reshape(tensor,shape,name=None)
+	
+The reshape function accepts the input `tensor` and reshapes it to the shape `shape`.Let us look at an example:
+	
+	import tensorflow as tf
+	T=tf.constant([[[1,2,3],[4,5,6]],[[7,8,9],[10,11,12]],[[13,14,15],[16,17,18]])
+	reshaped=tf.reshape(T,[2,1,9])
+	sess=tf.InteractiveSession()
+	print(A.eval())
+
+Output
+
+	[[[1 2 3 4 5 6 7 8 9]] 
+	[[10 11 12 13 14 15 16 17 18]]]
+
+To visualise this reshaping,keep in mind that number of elements while reshaping remains same.There are 18 elements in the tensor `T`.While reshaping always concentrate on the innermost dimension(2nd dimension in this case).Here in the new shape,the innermost dimension must have 9 elements.Allot 9 elements in order to the innermost dimension and work your way outward.
 
 
-#### CNNs,Finally!!
+### Slicing in tensorflow
+
+Slicing operations in tensorflow are carried out by slice function defined as-
+
+	tf.slice(input,begin,size,name=None)
+
+The slice function extracts a slice of size `size` from `input` tensor starting at location specified by `begin`.Both `size` and `begin` are represented in form of vectors where `size[i]` is the number of elements of the i<sup>th</sup> dimension of input that you want to slice and begin[i] is the offset into the i<sup>th</sup> dimension of input that you want to slice from.Let us make this clear with help of some examples:
+	
+	import tensorflow as tf
+	T=tf.constant([[[10,11,12],[13,14,15]],
+					[[16,17,18],[19,20,21]],
+					[[22,23,24],[25,26,27]]])
+	sess=tf.InteractiveSession()
+	S=tf.slice(T,[0,1,1],[1,1,2])
+	print(S.eval())
+	
+Output:
+	
+	[[[14 15]]]
+	
+	
+In above example our `begin` and `size` vectors were `[0,1,1]` and `[1,1,2]` respectively.The slice operation is operated by combination of these two vectors.The zeroth element of `begin` vector(i.e. 0) tells slice function to start slicing from 0<sup>th</sup> element of zeroth dimension of `T` and the zeroth element of `size` vector(i.e. 1) informs to take 1 element of the zeroth dimension of `T` which would give us `[[[10,11,12],[13,14,15]]]` to work with.The first element of `begin` vector(i.e. 1) tells slice function to start slicing from 1<sup>st</sup> element of first dimension of `T` and the first element of `size` vector(i.e. 1) informs to take 1 element of the first dimension of `T` which would give us `[[[13,14,15]]]` to work with.The second element of `begin` vector(i.e. 1) tells slice function to start slicing from 1<sup>st</sup> element of second dimension of `T` and the second element of `size` vector(i.e. 2) informs to take 2 elements of the second dimension of `T` which would give us `[[[14,15]]]` as our sliced tensor.
 
 
- As the input to a CNN is an image,therefore it operates on volume.The input pixels are stacked in form of volume axbxc where axb is the resolution of the image and c is number of channels(which is 3 for RGB).This is called as input layer.The input layer is subjected to a number of filters to generate activations.These activations along with filters form the second layer of our network(or the first convolution layer).The number of channels in each filter is equal to number of channels in our image.
- 
- ![single_filter](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/single_filter.png?raw=true)
+Thus slicing operations may be seen as cumulative effect of slicing commands in all the dimensions individually.Try to convince yourself,the outputs of examples below:
 
- ![multiple_filter](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/multi_filter.png?raw=true)
- 
- The first of the above two figures shows convolution of 5X5X3 filter on 32X32X3 image.Note that the spatial dimensions of activation map is 28X28.This spatial dimension is smaller because we are only sliding the filter over the image such that it does not overshoots the image.(We will see a concrete mathematical formula to reach to smaller spatial dimension)
- The second figure shows  four 5X5X3 filters stacked to produce four 28X28X1 activations thus giving rise to 28X28X4 activation map.Note that each of the four filters would have access to the input layer and operate directly on our image.
- 
- This activation map is passed through a non-linearity(most commonly ReLU).The output is then further exposed to set of filters which will have access to our ReLU applied activation map(and not the input image).To summarize,filters would be applied on the activation of previous layer.We can stack up as many layers as required.Thus the network looks like:
- 
- ![network](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/network.png?raw=true)
 
-After stacking suitable numbers of convolution layers,we finally connect the activation map to fully connected layer which gives us scores for different classes to be classified.
+	import tensorflow as tf
+	T=tf.constant([[[10,11,12],[13,14,15]],
+					[[16,17,18],[19,20,21]],
+					[[22,23,24],[25,26,27]]])
+	sess=tf.InteractiveSession()
+	S1 = tf.slice(T, [1, 1, 2], [1, 1, 1])
+	print("The value of tf.slice(T,[1, 1, 2],[1, 1, 1]) is ",S1.eval())
+	S2=tf.slice(T,[0,0,0],[3,2,1])
+	print("The value of tf.slice(T,[0,0,0],[3,2,1]) is ",S2.eval())
 
-#### Trainable parameters
 
-The weights of the filters are randomly initialized.We let our network learn these weights during training.This captures the fact that we let the network decide which features are important for identification of a particular image.Also as filter weights(and biases) and the weights of the last fully connected layer  are the only trainable parameters,CNNs have satisfied both the motivations(to decrease number of parameters and feature learning).
+Output:
 
-#### Padding
+	
+	The value of tf.slice(T, [1, 1, 2], [1, 1, 1]) is  [[[21]]]
+	The value of tf.slice(T,[0,0,0],[3,2,1]) is  
+	[
+	[[10]
+  	 [13]]
+  	
+  	[[16]
+  	[19]]
+  	
+  	[[22]
+    [25]]
+    ]
 
-While applying filter to our images,we noticed that their spatial dimensions diminished.This happened because we moved filter only as long as they reached the edge of our image. Thus few pixels at the edges did not get the chance to be at the center of the filter.To visualize this have a look at the figure below:
+Now that we have taken a look at slicing operations,lets jump back to our cifar-10 implementation.
 
-![filter_travel](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/filter_travel.png?raw=true)
 
-In the above filter convolution as we reach the next state of filter,we move one step towards right.This step is called as *stride*.In above case stride=1.
-Although reaching to diminished dimension can easily be visualized in case of small images but for larger ones we need to have a mathematical formula(or not!).The output size is given by:
+## Dataset
 
-    Output size=(N-F)/stride +1
-where N is dimension of input image,F is dimension of filter. 
 
-In this case,N=7 and F=3 so, output size=(7-3)/1 +1=5.
+The cifar-10 dataset consists of 60000 32X32 colour images in 10 classes,with 6000 images per class.Out of these 60000 images,50000 are training images and 10000 are test images.
 
-This diminishing of spatial dimensions is undesirable as when our networks gets deep with increase in number of convolution layers,the decrease in spatial dimension would be a problem as it will take away significant chunks of information.To counter this problem,Padding is introduced.
+The dataset can be found [here](https://www.cs.toronto.edu/~kriz/cifar.html).You may also want to see this [tech-report](https://www.cs.toronto.edu/~kriz/learning-features-2009-TR.pdf).We will use the binary dataset for implementation.
 
-As the name suggests,padding is nothing but padding of images.Our basic problem was that the pixels that were on the edge of our image were left out by the filter.What if they are no more at the edge?This can be made possible by padding our image with zero pixels.This would allow our filter to traverse along the image beyond the edges and thus solve the problem.If we apply zero pad border to our 7X7 example above:
 
-![padding](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/padding.png?raw=true)
+### Anatomy of dataset
 
-For stride=1,the general formula for number of padding borders required to preserve spatial size of our activation is:
 
-    borders=(F-1)/2
+The binary dataset consists of data distributed in 6 files of which 5 contain training data(10000 training images each) and the remaining file contains test data(10000 test images).
 
-where F is size of our filter.In this case F=3,so borders=(3-1)/2=1.
+As each of these images are 32X32 colour images with 3 channels Red,Green and Blue(RGB),they will have 32X32X3=3072 image bytes(32X32=1024 for each R,G,B).Also each image is associated with a label(denoting its class) which occupies 1 byte.Thus each image will be defined by 3072(image)+1(label)=3073 bytes.
 
-#### Pooling
+As each image file contains 10000 such images so they are 30730000 bytes long.The arrangement of images in these files can be visualised as:
+![dataset_visual](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/cnn-in-tensorflow/images/dataset.png?raw=true)
 
-Now that we have all the components of our network,we can suggest some modifications to make our network better.To further decrease the number of parameters and to prevent overfitting,we introduce the concept of pooling.Pooling involves downsampling of our activetion map.The most common form of pooling used is called max-pooling.
-Remember that our activation map consisted of individual activations from different filters.Pooling operation is done individually on these activations i.e. pooling operation only modifies the spatial dimension of our matrix and leaves the number of activations unaffected.Let us see max-pooling with help of an example:
+Each image is arranged in form of rows with first byte as the label byte followed by 1024 pixel bytes each of Red,Green and Blue channels respectively.There are 10000 such rows.The image rows are consecutive i.e. there is nothing delimiting image rows.
 
-![pooling](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/pooling.png?raw=true)
+Let us end this post here.The next post will be dedicated to input pipeline in tensorflow.We will try to read and process the cifar-10 dataset.The next post will be live in a couple of days.Stay tuned!!!
 
-Max pooling is pretty straightforward as shown in above figure.Our 4X4 activation would be traversed by a 2X2 max-pool filter with stride 2.This traversal can be visualized by dividing our 4X4 activation in 4 quadrants.During filter traversal,maximum of each quadrant is preserved and rest of the pixel values are neglected.Thus we get a downsampled max pooled activation.
-This pooling operation is done after a few convolution layers.In essence the netwok can be viewed as:
-
-![full_network](https://github.com/jasdeep06/jasdeep06.github.io/blob/master/posts/basics-of-cnns/images/full_network.png?raw=true)
-
-Note that the pooling layer is after every second convolution layer.It id just matter of whatever works for you!!!Try different combinations and pick the best for your network.
-
-So this post was all about getting a intuitive feel of CNNs.In the next post we will apply CNNs for image classification task in Tensorflow.Stay tuned!!
+	
